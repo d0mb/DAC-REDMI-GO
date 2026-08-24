@@ -1,0 +1,6 @@
+id=dac_bluetooth_sink
+name=DAC Hub Pro - Bluetooth A2DP Sink Fix
+version=v1.0
+versionCode=100
+author=DAC Hub Team
+description=Habilita o receptor Bluetooth de alta fidelidade A2DP Sink e decodificador de áudio nativo no Xiaomi Redmi Go.
