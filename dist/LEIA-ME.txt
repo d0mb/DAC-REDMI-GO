@@ -1,0 +1,25 @@
+========================================================================
+                      DAC HUB PRO • SISTEMA DE ÁUDIO HI-FI
+========================================================================
+
+Este pacote permite transformar qualquer celular Android em um receptor DAC 
+e transmitir o som de qualquer computador Windows para as caixas de som!
+
+------------------------------------------------------------------------
+1. NO CELULAR (RECEPTOR DAC):
+------------------------------------------------------------------------
+- Instale o arquivo "DAC_Hub_Pro.apk" no celular.
+- Abra o aplicativo e conecte o celular ao Wi-Fi.
+- Conecte o cabo P2 (3.5mm) do celular na sua caixa de som ou amplificador.
+
+------------------------------------------------------------------------
+2. EM QUALQUER COMPUTADOR (TRANSMISSOR):
+------------------------------------------------------------------------
+- Basta abrir o executável "DAC_Hub_Transmitter_Portable.exe".
+- Ele encontra o celular na rede automaticamente!
+- Todo o áudio do computador (Spotify, YouTube, Filmes, Jogos, etc.) 
+  será transmitido instantaneamente com qualidade Hi-Fi sem perdas!
+
+* Não requer instalação de Python nem programas adicionais.
+* Funciona via Wi-Fi ou via Cabo USB.
+========================================================================

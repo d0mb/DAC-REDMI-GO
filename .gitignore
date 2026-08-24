@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+*.spec
+
+# Android Build Outputs & Caches
+android-app/build/
+android-app/.gradle/
+.gradle/
+*.idsig
+
+# Heavy ROM dumps & temporary archives
+rom/
+TWRP/
+*.img
+*.bin
+*.mbn
+*.dat
+*.dat.br
+*.transfer.list
+platform-tools-latest-windows.zip
+tools/android-sdk/
+tools/jdk/
+tools/platform-tools/
+tools/scrcpy/
+tools/usb_driver/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
