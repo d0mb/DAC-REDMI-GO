@@ -1,98 +1,176 @@
-# ⚡ DAC Hub Pro • Transforme seu Smartphone em um Receptor DAC Hi-Fi Dedicado
+# ⚡ DAC Hub Pro • Transforme seu Xiaomi Redmi Go em uma Central DAC Hi-Fi Dedicada
+### *Turn your Xiaomi Redmi Go into a Dedicated Hi-Fi Audio DAC Receiver*
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Audio-Lossless%20PCM%2044.1kHz%2016--bit-00E5FF?style=for-the-badge&logo=soundcharts" />
-  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-blue?style=for-the-badge&logo=windows" />
-  <img src="https://img.shields.io/badge/Latency-Ultra--Low%20(~15ms)-success?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Audio-Lossless%20PCM%2044.1kHz%2016--bit-00E5FF?style=for-the-badge&logo=soundcharts" alt="Lossless Audio" />
+  <img src="https://img.shields.io/badge/Latency-Ultra--Low%20(~15ms)-success?style=for-the-badge" alt="Ultra Low Latency" />
+  <img src="https://img.shields.io/badge/Platform-Android%208.1%20%7C%20Windows%2010%2F11-blue?style=for-the-badge&logo=windows" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Hardware-Snapdragon%20425%20DAC%20(tiare)-orange?style=for-the-badge&logo=qualcomm" alt="Snapdragon Hardware" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License" />
 </p>
 
-O **DAC Hub Pro** é um ecossistema completo para transformar qualquer smartphone Android antigo ou dedicado em uma **Central Receptora DAC Hi-Fi de Alta Fidelidade**, transmitindo o áudio de qualquer computador Windows (ou outros dispositivos) para caixas de som amplificadas ou fones via cabo P2 (3.5mm), Wi-Fi e Bluetooth.
+<p align="center">
+  <a href="#-português-brasil"><b>🇧🇷 Português (Brasil)</b></a> •
+  <a href="#-english"><b>🇺🇸 English</b></a>
+</p>
 
 ---
 
-## 🌟 Principais Recursos
+<a name="-português-brasil"></a>
+## 🇧🇷 Português (Brasil)
+
+### 📌 Visão Geral do Projeto
+
+O **DAC Hub Pro** é uma solução completa de engenharia reversa e desenvolvimento de software criada para revitalizar o smartphone **Xiaomi Redmi Go (`tiare`)**, convertendo-o em um **Receptor DAC Analógico Hi-Fi de Alta Fidelidade** dedicado para alimentar caixas de som amplificadas, soundbars e sistemas de som vintage via saída P2 (3.5mm), Wi-Fi e Bluetooth.
+
+Ao eliminar todo o bloatware de fábrica e rotear o áudio diretamente pela API de baixo nível do **Qualcomm Snapdragon 425**, o sistema atinge transmissão de áudio sem perdas (lossless) com latência imperceptível e consumo ultra-baixo de recursos.
+
+---
+
+### ✨ Destaques & Recursos Principais
 
 - 🎵 **Áudio Lossless sem Compressão:** Transmissão PCM raw a 44.1 kHz / 16-bit estéreo (1411 kbps) diretamente para o DAC do Snapdragon.
-- ⚡ **Latência Ultra-Baixa (~15ms):** Ideal para músicas, vídeos no YouTube, filmes e jogos.
-- 🔄 **Auto-Reconexão Contínua & Zero-Pop:** Se o computador transmissor suspender ou o Wi-Fi oscilar, a reconexão ocorre automaticamente sem estalos ou ruídos na caixa de som.
-- 📊 **Monitoramento e VU Meter em Tempo Real:** Tela do celular e Dashboard Web exibem o IP conectado, bitrate e visualizador dinâmico de sinal sonoro.
-- 📦 **Cliente Windows 100% Portátil:** Executável único (`.exe`) sem instaladores, que descobre o receptor na rede sozinho.
-- 🌐 **Dashboard Web Integrado:** Controle e teste a caixa de som a partir de qualquer navegador na rede local (`http://[IP]:8080`).
+- ⚡ **Latência Ultra-Baixa (~15ms):** Sincronização perfeita para filmes, vídeos no YouTube e jogos.
+- 🔄 **Auto-Reconexão Contínua & Zero-Pop:** Se o computador transmissor suspender ou o Wi-Fi oscilar, o receptor limpa o buffer suavemente sem estalos na caixa de som e reconecta sozinho.
+- 📊 **Telemetria ao Vivo & VU Meter Dinâmico:** Monitoramento na tela do celular e no Painel Web exibindo o IP do transmissor ativo, bitrate e barra de nível de som em tempo real.
+- 📦 **Transmissor Windows 100% Portátil:** Executável único (`.exe`) sem instaladores, que descobre o receptor na rede sozinho.
+- 🌐 **Dashboard Web Integrado:** Acesse `http://[IP-DO-CELULAR]:8080` de qualquer navegador para controle de som e diagnósticos.
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+### 🏗️ Arquitetura do Sistema
 
 ```
-+---------------------------+                     +-------------------------------+
-|     WINDOWS TRANSMITTER   |  TCP Stream (8080)  |        ANDROID DAC RECEIVER   |
-|                           | ──────────────────> |                               |
-| • WASAPI Loopback Capture |   Lossless 1411kbps | • AudioTrack Stream           |
-| • Auto-Discovery na Rede  |                     | • Qualcomm Snapdragon DAC     |
-| • Auto-Reconnect Engine   |                     | • Saída P2 Analógica 3.5mm    |
-+---------------------------+                     +-------------------------------+
-                                                                 │
-                                                                 ▼
-                                                    [ CAIXAS DE SOM / AMPLIFICADOR ]
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-DAC/
-├── android-app/                   # Código-fonte do aplicativo Android (DAC Hub Pro)
-│   ├── src/main/java/             # Backend de áudio, servidor HTTP e Bluetooth
-│   └── src/main/res/              # Telas, temas e layouts em Dark Mode
-├── windows-transmitter/           # Código-fonte do Transmissor de áudio Windows
-│   ├── src/DACHubStreamer.py      # Captura WASAPI Loopback e streaming resiliente
-│   ├── requirements.txt           # Dependências Python (sounddevice, numpy)
-│   └── build_exe.ps1              # Script de compilação do executável portátil
-├── scripts/                       # Scripts de automação e compilação
-│   ├── build_apk.ps1              # Build rápido do APK sem necessidade de IDE
-│   ├── debloat.sh                 # Script de remoção de bloatware do Android
-│   └── iniciar_transmissor_pc.bat # Atalho para iniciar o transmissor
-├── docs/                          # Documentação detalhada
-│   ├── ARQUITETURA.md             # Engenharia de baixo nível do DAC
-│   └── GUIA_INSTALACAO.md         # Manual de instalação e uso
-├── dist/                          # Binários prontos para uso
-│   ├── DAC_Hub_Pro.apk            # APK assinado pronto para o celular
-│   ├── DAC_Hub_Transmitter_Portable.exe # Executável portátil para qualquer PC
-│   └── LEIA-ME.txt
-└── README.md                      # Este arquivo
++------------------------------------+                     +---------------------------------------+
+|        TRANSMISSOR WINDOWS         |  TCP Socket (8080)  |          RECEPTOR ANDROID (DAC)       |
+|                                    | ──────────────────> |                                       |
+| • Captura WASAPI Loopback          |   Lossless 1411kbps | • DacAudioService (Foreground/WakeLock)|
+| • Auto-Discovery na Subrede        |   Raw PCM Estéreo   | • WifiAudioServer (Zero-Pop Buffer)   |
+| • Reconexão Resiliente Exponencial |                     | • Qualcomm Snapdragon 425 Audio DSP   |
++------------------------------------+                     +---------------------------------------+
+                                                                               │
+                                                                               ▼
+                                                                  [ SAÍDA ANALÓGICA P2 3.5mm ]
+                                                                               │
+                                                                               ▼
+                                                                  [ CAIXAS DE SOM / AMPLIFICADOR ]
 ```
 
 ---
 
-## 🚀 Como Usar Rapidamente
+### 🚀 Como Usar em 2 Passos
 
-### 1. No Celular (Receptor DAC)
-1. Instale o aplicativo **[dist/DAC_Hub_Pro.apk](dist/DAC_Hub_Pro.apk)** no celular.
-2. Conecte o cabo P2 (3.5mm) na saída de fone do celular e na entrada da sua **caixa de som**.
-3. Abra o app: ele mostrará o status **ONLINE** e o endereço IP da rede local.
+#### 1. No Celular (Receptor)
+1. Instale o APK: **[`dist/DAC_Hub_Pro.apk`](dist/DAC_Hub_Pro.apk)**.
+2. Conecte o cabo P2 (3.5mm) na saída de fone do celular e a outra ponta na sua caixa de som.
+3. Abra o app: ele exibirá **ONLINE** e o endereço IP da rede local.
 
-### 2. Em Qualquer Computador Windows
-1. Execute o arquivo portátil **[dist/DAC_Hub_Transmitter_Portable.exe](dist/DAC_Hub_Transmitter_Portable.exe)**.
+#### 2. No Computador (Transmissor)
+1. Execute o arquivo portátil: **[`dist/DAC_Hub_Transmitter_Portable.exe`](dist/DAC_Hub_Transmitter_Portable.exe)**.
 2. O aplicativo encontra o celular na rede e começa a transmitir todo o áudio do Windows instantaneamente!
 
 ---
 
-## 🛠️ Como Compilar o Projeto do Zero
+<br>
 
-### Compilar o APK Android (sem Android Studio):
+---
+
+<a name="-english"></a>
+## 🇺🇸 English
+
+### 📌 Project Overview
+
+**DAC Hub Pro** is an open-source hardware re-purposing and audio streaming ecosystem designed to convert a **Xiaomi Redmi Go (`tiare`)** into a **Dedicated High-Fidelity DAC Audio Receiver** to drive active monitors, studio speakers, soundbars, or vintage amplifiers through its analog 3.5mm (P2) jack over Wi-Fi and Bluetooth.
+
+By completely stripping Android OEM bloatware and streaming raw PCM audio directly to the **Qualcomm Snapdragon 425 SoC Audio DSP**, this project achieves zero-compression lossless reproduction with imperceptible latency and minimal power consumption.
+
+---
+
+### ✨ Key Features
+
+- 🎵 **Uncompressed Lossless Audio:** 44.1 kHz / 16-bit Stereo PCM bitstream (1411 kbps) streamed directly to the Qualcomm hardware DAC.
+- ⚡ **Ultra-Low Latency (~15ms):** Real-time synchronization suitable for watching movies, YouTube, and gaming.
+- 🔄 **Continuous Auto-Reconnect & Zero-Pop Filtering:** Graceful buffer decay and zero-crossing mute on disconnect prevents popping sounds on speaker cones, resuming playback instantly upon network return.
+- 📊 **Real-Time Telemetry & Dynamic VU Meter:** Live on-screen UI and Web Dashboard showing active client IP, sample rate, bit depth, and responsive audio visualizer bars.
+- 📦 **Standalone Windows Client:** Zero-install single-file portable `.exe` with automatic LAN subnet discovery.
+- 🌐 **Embedded Web Dashboard:** Point any browser on your local network to `http://[PHONE-IP]:8080` for diagnostics and remote control.
+
+---
+
+### 🏗️ Technical Architecture & Flow
+
+```
++------------------------------------+                     +---------------------------------------+
+|         WINDOWS TRANSMITTER        |  TCP Socket (8080)  |          ANDROID DAC RECEIVER         |
+|                                    | ──────────────────> |                                       |
+| • Windows WASAPI Loopback Capture  |   Lossless 1411kbps | • DacAudioService (WakeLock Protected) |
+| • UDP/TCP LAN Auto-Discovery       |   Raw PCM Bitstream | • WifiAudioServer (Ring Buffered)     |
+| • Exponential Auto-Reconnect Engine|                     | • Qualcomm Snapdragon 425 Audio DSP   |
++------------------------------------+                     +---------------------------------------+
+                                                                               │
+                                                                               ▼
+                                                                  [ 3.5mm ANALOG STEREO JACK ]
+                                                                               │
+                                                                               ▼
+                                                                  [ POWERED SPEAKERS / AMPLIFIER ]
+```
+
+---
+
+### 🚀 Quick Start Guide
+
+#### 1. Setup the DAC Receiver (Phone)
+1. Install the application: **[`dist/DAC_Hub_Pro.apk`](dist/DAC_Hub_Pro.apk)**.
+2. Plug a 3.5mm AUX cable from the phone's headphone jack into your amplifier or speaker system.
+3. Open the app: the screen will display **ONLINE** along with its local IP address.
+
+#### 2. Stream from Windows (PC)
+1. Launch the standalone portable client: **[`dist/DAC_Hub_Transmitter_Portable.exe`](dist/DAC_Hub_Transmitter_Portable.exe)**.
+2. The client will automatically discover the phone receiver on the local network and stream all PC audio in real time!
+
+---
+
+## 📂 Repository Structure
+
+```text
+DAC/
+├── android-app/                   # Android Receiver application (Java)
+│   ├── src/main/java/             # Low-latency AudioTrack streaming & WebServer
+│   └── src/main/res/              # Dark Mode UI & VU Meter layouts
+├── windows-transmitter/           # Windows Audio Streamer (Python)
+│   ├── src/DACHubStreamer.py      # WASAPI loopback capture & resilient streaming
+│   ├── requirements.txt           # Python dependencies
+│   └── build_exe.ps1              # Single-file portable EXE compiler
+├── scripts/                       # Automation and helper scripts
+│   ├── build_apk.ps1              # Lightweight APK build toolchain
+│   ├── debloat.sh                 # Android extreme debloat script (230MB+ RAM free)
+│   └── iniciar_transmissor_pc.bat # Quick launcher batch file
+├── docs/                          # In-depth technical documentation
+│   ├── ARQUITETURA.md             # Hardware pipeline & DSP specs
+│   └── GUIA_INSTALACAO.md         # Installation and troubleshooting guide
+├── dist/                          # Pre-compiled ready-to-use binaries
+│   ├── DAC_Hub_Pro.apk            # Signed production APK
+│   ├── DAC_Hub_Transmitter_Portable.exe # Standalone portable Windows binary
+│   └── LEIA-ME.txt
+└── README.md                      # Bilingual Project Documentation
+```
+
+---
+
+## 🛠️ Build from Source
+
+### Build the Android APK (No Android Studio required):
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/build_apk.ps1
 ```
 
-### Compilar o Executável Windows (EXE portátil):
+### Build the Windows Portable Executable:
 ```powershell
 powershell -ExecutionPolicy Bypass -File windows-transmitter/build_exe.ps1
 ```
 
 ---
 
-## 📄 Licença
+## 📄 License
 
-Este projeto é disponibilizado sob a licença [MIT](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
