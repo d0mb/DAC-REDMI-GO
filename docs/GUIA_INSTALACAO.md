@@ -47,3 +47,19 @@ http://[IP-DO-CELULAR]:8080
   - Status da transmissão ao vivo.
   - VU Meter animado mostrando o nível do sinal de áudio.
   - Botão para disparar tom de teste de 440Hz / 880Hz nas caixas.
+
+---
+
+## 🔵 4. Uso via Bluetooth (Receptor A2DP para Celulares e Tablets)
+
+Caso queira utilizar o DAC como um **Receptor Bluetooth tradicional** para tocar músicas direto do seu celular pessoal, iPhone ou tablet:
+
+### Passo a Passo:
+1. No celular DAC, abra o **DAC Hub Pro** e toque em **`TORNAR VISÍVEL PARA PAREAR`** (ou abra *Configurações > Dispositivos Conectados > Bluetooth*).
+2. No seu outro celular / dispositivo emissor:
+   * Acesse as configurações de **Bluetooth** e selecione **Parear novo dispositivo**.
+   * Escolha **`DAC-HiFi-Audio`** (ou *Redmi Go*).
+   * Confirme o pareamento.
+3. **Pronto!** Todo o áudio reproduzido no seu smartphone pessoal será enviado via Bluetooth e sairá pela saída P2 (3.5mm) conectada na caixa de som.
+
+> 📌 **Dica de Desempenho:** Para computadores, utilize sempre o **Transmissor Portátil Wi-Fi** (`DAC_Hub_Transmitter_Portable.exe`), pois ele entrega áudio digital sem compressão (PCM 1411 kbps) e sem os limites de alcance do Bluetooth. O Bluetooth é ideal para visitas e celulares secundários.

@@ -69,6 +69,14 @@ Ao eliminar todo o bloatware de fábrica e rotear o áudio diretamente pela API 
 1. Execute o arquivo portátil: **[`dist/DAC_Hub_Transmitter_Portable.exe`](dist/DAC_Hub_Transmitter_Portable.exe)**.
 2. O aplicativo encontra o celular na rede e começa a transmitir todo o áudio do Windows instantaneamente!
 
+#### 3. Conectar Celulares e Tablets via Bluetooth (Modo Receptor A2DP)
+1. Na tela do aplicativo **DAC Hub Pro** no celular, toque no botão **`TORNAR VISÍVEL PARA PAREAR`** (ou acesse as configurações de Bluetooth do Android).
+2. No seu outro smartphone, tablet ou notebook, abra o Bluetooth e procure pelo dispositivo:
+   👉 **`DAC-HiFi-Audio`** (ou *Redmi Go*).
+3. Toque para parear. Assim que conectado, todo o som do seu celular pessoal sairá diretamente nas caixas de som!
+
+> 💡 **Wi-Fi vs Bluetooth:** Recomendamos o **Transmissor Wi-Fi** para PCs (áudio 100% puro PCM sem compressão e sem limite de distância) e o **Bluetooth** para pareamento rápido de smartphones e visitas.
+
 ---
 
 <br>
@@ -127,6 +135,14 @@ By completely stripping Android OEM bloatware and streaming raw PCM audio direct
 #### 2. Stream from Windows (PC)
 1. Launch the standalone portable client: **[`dist/DAC_Hub_Transmitter_Portable.exe`](dist/DAC_Hub_Transmitter_Portable.exe)**.
 2. The client will automatically discover the phone receiver on the local network and stream all PC audio in real time!
+
+#### 3. Connect Mobile Devices via Bluetooth (A2DP Sink Mode)
+1. In the **DAC Hub Pro** app on the phone, tap **`TORNAR VISÍVEL PARA PAREAR`** (*Make Discoverable*).
+2. On your iPhone, Android smartphone, or tablet, search for available Bluetooth devices and select:
+   👉 **`DAC-HiFi-Audio`** (or *Redmi Go*).
+3. Pair the device. Audio played on your mobile device will now route directly through the wired 3.5mm speaker output!
+
+> 💡 **Wi-Fi vs Bluetooth:** We recommend **Wi-Fi Streaming** for PCs (uncompressed 1411 kbps lossless PCM with unlimited range) and **Bluetooth** for quick pairing of guest smartphones.
 
 ---
 
