@@ -162,9 +162,14 @@ DAC/
 │   ├── debloat.sh                 # Android extreme debloat script (230MB+ RAM free)
 │   └── iniciar_transmissor_pc.bat # Quick launcher batch file
 ├── docs/                          # In-depth technical documentation
-│   ├── ARQUITETURA.md             # Hardware pipeline & DSP specs
-│   ├── GUIA_INSTALACAO.md         # Installation and troubleshooting guide
-│   └── MANUAL_ROM_E_BLUETOOTH.md  # Detailed ROM, Root & Bluetooth Sink Manual
+│   ├── pt-br/                     # 🇧🇷 Documentação em Português
+│   │   ├── ARQUITETURA.md
+│   │   ├── GUIA_INSTALACAO.md
+│   │   └── MANUAL_ROM_E_BLUETOOTH.md
+│   └── en/                        # 🇺🇸 Documentation in English
+│       ├── ARCHITECTURE.md
+│       ├── INSTALLATION_GUIDE.md
+│       └── ROM_AND_BLUETOOTH_MANUAL.md
 ├── dist/                          # Pre-compiled ready-to-use binaries
 │   ├── DAC_Hub_Pro.apk            # Signed production APK
 │   ├── DAC_Hub_Transmitter_Portable.exe # Standalone portable Windows binary
