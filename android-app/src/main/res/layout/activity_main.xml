@@ -40,64 +40,90 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- CARD 1: Dispositivo Transmissor Ativo (Telemetria ao Vivo) -->
+        <!-- SELETOR DE MODO: WI-FI vs BLUETOOTH -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="SELECIONE O MODO DE RECEPÇÃO:"
+            android:textColor="#8094B0"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnModeWifi"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="#00B0FF"
+                android:text="📻 MODO WI-FI (PC)"
+                android:textColor="#0A0E17"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnModeBluetooth"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="#1E2C44"
+                android:text="🔵 MODO BLUETOOTH"
+                android:textColor="#94A3B8"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- CARD 1: Informações do Modo Ativo -->
+        <LinearLayout
+            android:id="@+id/layoutActiveModeCard"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:background="#131B2A"
             android:orientation="vertical"
             android:padding="16dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="FONTE DE ÁUDIO ATIVA"
-                    android:textColor="#8094B0"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvStreamBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="AGUARDANDO"
-                    android:textColor="#64748B"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
             <TextView
-                android:id="@+id/tvConnectedClient"
+                android:id="@+id/tvActiveModeTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Aguardando Transmissão do PC..."
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:text="MODO WI-FI: Transmissão Lossless do Computador"
+                android:textColor="#00E5FF"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvAudioFormat"
+                android:id="@+id/tvActiveModeDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="IP do Receptor: http://192.168.15.12:8080"
+                android:textColor="#FFD700"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvFormatDetails"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="PCM 44.1kHz • 16-Bit Lossless (1411 kbps)"
-                android:textColor="#38BDF8"
-                android:textSize="12sp" />
+                android:text="Qualidade: PCM 44.1kHz 16-Bit Estéreo (1411 kbps)"
+                android:textColor="#64748B"
+                android:textSize="11sp" />
 
             <!-- VU Meter em tempo real -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="NÍVEL DE SAÍDA (VU METER)"
+                android:text="NÍVEL DE ÁUDIO DE SAÍDA (VU METER):"
                 android:textColor="#64748B"
                 android:textSize="10sp"
                 android:textStyle="bold" />
@@ -113,7 +139,7 @@
                 android:progressTint="#00E5FF" />
         </LinearLayout>
 
-        <!-- CARD 2: Conexão de Rede / IP do Receptor -->
+        <!-- CARD 2: LISTA DE DISPOSITIVOS CONECTADOS E CONTROLE DE PARADA -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -123,81 +149,44 @@
             android:padding="16dp">
 
             <TextView
-                android:text="ENDEREÇO DO RECEPTOR NA REDE"
+                android:text="DISPOSITIVOS CONECTADOS / TRANSMITINDO"
                 android:textColor="#8094B0"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
 
-            <TextView
-                android:id="@+id/tvWifiIp"
+            <!-- Container Dinâmico de Dispositivos -->
+            <LinearLayout
+                android:id="@+id/layoutDevicesList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="http://192.168.1.X:8080"
-                android:textColor="#FFD700"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tvWifiStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Auto-reconexão e resiliência ativas"
-                android:textColor="#A0B0C0"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- CARD 3: Bluetooth A2DP Sink -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="#131B2A"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:text="RECEPTOR BLUETOOTH (A2DP SINK)"
-                android:textColor="#8094B0"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:id="@+id/tvBtName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="DAC-HiFi-Audio"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvBtStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Pronto para pareamento de outros celulares"
-                android:textColor="#00E5FF"
-                android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tvNoDevices"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="8dp"
+                    android:text="Aguardando conexão (Wi-Fi ou Bluetooth)..."
+                    android:textColor="#64748B"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <Button
-                android:id="@+id/btnToggleBt"
+                android:id="@+id/btnMakeDiscoverable"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
-                android:layout_marginTop="10dp"
-                android:background="#1E2C44"
-                android:text="TORNAR VISÍVEL PARA PAREAR"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
+                android:layout_height="38dp"
+                android:layout_marginTop="8dp"
+                android:background="#1E293B"
+                android:text="🔍 TORNAR BLUETOOTH VISÍVEL PARA PAREAR"
+                android:textColor="#38BDF8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- CARD 4: Controle de Volume P2 -->
+        <!-- CARD 3: Volume Analógico P2 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -215,7 +204,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="SAÍDA ANALÓGICA P2 (3.5mm)"
+                    android:text="VOLUME DA SAÍDA ANALÓGICA P2 (3.5mm)"
                     android:textColor="#8094B0"
                     android:textSize="11sp"
                     android:textStyle="bold" />
@@ -245,8 +234,8 @@
         <Button
             android:id="@+id/btnTestTone"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:layout_marginTop="14dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="12dp"
             android:layout_marginBottom="16dp"
             android:background="#00B0FF"
             android:text="🔊 TESTAR SAÍDA DE SOM NAS CAIXAS"

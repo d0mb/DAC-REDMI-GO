@@ -8,7 +8,7 @@ $java = Join-Path $jdkBin "java.exe"
 $javac = Join-Path $jdkBin "javac.exe"
 $jar = Join-Path $jdkBin "jar.exe"
 
-$androidJar = "C:\Projetos\DAC\tools\android-sdk\platforms\android-9\android.jar"
+$androidJar = "C:\Projetos\DAC\tools\android-sdk\platforms\android-28\android.jar"
 $buildToolsDir = "C:\Projetos\DAC\tools\android-sdk\build-tools\30.0.3"
 $d8Jar = Join-Path $buildToolsDir "lib\d8.jar"
 $aapt2 = Join-Path $buildToolsDir "aapt2.exe"

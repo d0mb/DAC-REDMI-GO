@@ -15,6 +15,9 @@ import android.media.AudioTrack;
 import android.util.Log;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class BluetoothSinkManager {
@@ -23,18 +26,17 @@ public class BluetoothSinkManager {
     private final BluetoothAdapter bluetoothAdapter;
     private SinkStatusListener listener;
 
-    // UUIDs Oficiais do Bluetooth SIG para Áudio Estéreo (A2DP Sink / Headphone)
     private static final UUID A2DP_SINK_UUID = UUID.fromString("0000110B-0000-1000-8000-00805F9B34FB");
     private static final UUID AVRCP_TARGET_UUID = UUID.fromString("0000110C-0000-1000-8000-00805F9B34FB");
-    private static final UUID ADVANCED_AUDIO_UUID = UUID.fromString("0000110D-0000-1000-8000-00805F9B34FB");
-    private static final UUID HANDSFREE_AUDIO_UUID = UUID.fromString("0000111E-0000-1000-8000-00805F9B34FB");
 
     private BluetoothProfile a2dpSinkProfile;
     private AudioTrack audioTrack;
     private boolean isListening = false;
+    private volatile String connectedDeviceName = null;
 
     public interface SinkStatusListener {
         void onStatusChanged(String status, String connectedDevice);
+        void onDevicesUpdated();
     }
 
     public BluetoothSinkManager(Context context, SinkStatusListener listener) {
@@ -84,24 +86,19 @@ public class BluetoothSinkManager {
             Log.e(TAG, "Erro ao definir nome BT", e);
         }
 
-        // Conectar ao perfil interno de A2DP Sink (Perfil 11 no Android)
         connectProfileProxy();
-
-        // Iniciar escuta de SDP com perfis de áudio
         startSdpAudioServers();
-
         makeDiscoverable();
     }
 
     private void connectProfileProxy() {
         try {
-            // Perfil A2DP_SINK = 11 no Android Oreo
             bluetoothAdapter.getProfileProxy(context, new BluetoothProfile.ServiceListener() {
                 @Override
                 public void onServiceConnected(int profile, BluetoothProfile proxy) {
                     if (profile == 11) { // A2DP_SINK
                         a2dpSinkProfile = proxy;
-                        Log.i(TAG, "Perfil A2DP_SINK conectado com sucesso!");
+                        Log.i(TAG, "Perfil A2DP_SINK conectado!");
                         if (listener != null) listener.onStatusChanged("Receptor A2DP Sink Ativo", null);
                     }
                 }
@@ -112,7 +109,7 @@ public class BluetoothSinkManager {
                 }
             }, 11);
         } catch (Exception e) {
-            Log.w(TAG, "Aviso ao conectar proxy A2DP_SINK: " + e.getMessage());
+            Log.w(TAG, "Aviso proxy A2DP_SINK: " + e.getMessage());
         }
     }
 
@@ -122,7 +119,6 @@ public class BluetoothSinkManager {
 
         new Thread(() -> {
             try (BluetoothServerSocket serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord("DAC-HiFi-Audio", A2DP_SINK_UUID)) {
-                Log.i(TAG, "SDP Audio Server registrado!");
                 while (isListening) {
                     try {
                         BluetoothSocket socket = serverSocket.accept();
@@ -130,7 +126,7 @@ public class BluetoothSinkManager {
                     } catch (Exception ignored) {}
                 }
             } catch (Exception e) {
-                Log.w(TAG, "Servidor SDP iniciado em modo compatível: " + e.getMessage());
+                Log.w(TAG, "Servidor SDP: " + e.getMessage());
             }
         }).start();
     }
@@ -146,7 +142,7 @@ public class BluetoothSinkManager {
                     }
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Stream encerrado", e);
+                Log.e(TAG, "Stream BT encerrado", e);
             }
         }).start();
     }
@@ -155,24 +151,61 @@ public class BluetoothSinkManager {
         if (bluetoothAdapter == null) return;
         try {
             Method setScanMode = BluetoothAdapter.class.getMethod("setScanMode", int.class, int.class);
-            setScanMode.invoke(bluetoothAdapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, 0);
+            setScanMode.invoke(bluetoothAdapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, 300);
             if (listener != null) {
-                listener.onStatusChanged("Pronto para receber som Bluetooth", null);
+                listener.onStatusChanged("Visível para pareamento", null);
             }
         } catch (Exception e) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0);
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
             discoverableIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(discoverableIntent);
         }
+    }
+
+    public List<BluetoothDevice> getBondedDevices() {
+        List<BluetoothDevice> list = new ArrayList<>();
+        if (bluetoothAdapter != null) {
+            Set<BluetoothDevice> bonded = bluetoothAdapter.getBondedDevices();
+            if (bonded != null) {
+                list.addAll(bonded);
+            }
+        }
+        return list;
+    }
+
+    public void unpairDevice(BluetoothDevice device) {
+        try {
+            Method removeBondMethod = device.getClass().getMethod("removeBond");
+            removeBondMethod.invoke(device);
+            if (listener != null) {
+                listener.onDevicesUpdated();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erro ao desparear dispositivo", e);
+        }
+    }
+
+    public void disconnectAll() {
+        for (BluetoothDevice dev : getBondedDevices()) {
+            unpairDevice(dev);
+        }
+        if (bluetoothAdapter != null) {
+            bluetoothAdapter.disable();
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(bluetoothAdapter::enable, 1000);
+        }
+    }
+
+    public String getConnectedDeviceName() {
+        return connectedDeviceName;
     }
 
     private void registerReceivers() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
 
         context.registerReceiver(new BroadcastReceiver() {
             @Override
@@ -180,11 +213,19 @@ public class BluetoothSinkManager {
                 String action = intent.getAction();
                 if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
                     BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                    String name = device != null ? device.getName() : "Dispositivo Pareado";
-                    if (listener != null) listener.onStatusChanged("Conectado: " + name, name);
+                    connectedDeviceName = device != null ? device.getName() : "Dispositivo Pareado";
+                    if (listener != null) {
+                        listener.onStatusChanged("Conectado: " + connectedDeviceName, connectedDeviceName);
+                        listener.onDevicesUpdated();
+                    }
                 } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                    if (listener != null) listener.onStatusChanged("Aguardando conexão Bluetooth...", null);
-                    makeDiscoverable();
+                    connectedDeviceName = null;
+                    if (listener != null) {
+                        listener.onStatusChanged("Aguardando pareamento...", null);
+                        listener.onDevicesUpdated();
+                    }
+                } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+                    if (listener != null) listener.onDevicesUpdated();
                 }
             }
         }, filter);

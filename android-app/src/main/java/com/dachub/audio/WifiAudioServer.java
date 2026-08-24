@@ -29,6 +29,19 @@ public class WifiAudioServer {
     private volatile long lastAudioReceiveTime = 0;
     private volatile long streamStartTime = 0;
     private volatile long totalBytesReceived = 0;
+    private volatile Socket currentStreamingSocket;
+
+    public void disconnectActiveStream() {
+        isStreaming = false;
+        connectedClientIp = "Nenhum";
+        currentAudioLevel = 0;
+        try {
+            if (currentStreamingSocket != null && !currentStreamingSocket.isClosed()) {
+                currentStreamingSocket.close();
+            }
+        } catch (Exception ignored) {}
+        initAudioTrack();
+    }
 
     public static synchronized WifiAudioServer getInstance(Context context) {
         if (instance == null) {
@@ -138,6 +151,7 @@ public class WifiAudioServer {
                     out.flush();
 
                     connectedClientIp = clientIp;
+                    currentStreamingSocket = socket;
                     isStreaming = true;
                     streamStartTime = System.currentTimeMillis();
                     lastAudioReceiveTime = System.currentTimeMillis();
