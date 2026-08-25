@@ -95,7 +95,6 @@ public class AirPlayServer implements RaopCallbackHandler {
         if (isRunning) return;
 
         try {
-            Log.i(TAG, "Configurando HAL de áudio Oboe C++ (Qualcomm 192 burst / 48000 Hz)...");
             int sampleRate = 48000;
             int framesPerBurst = 192;
             if (audioManager != null) {
@@ -125,6 +124,19 @@ public class AirPlayServer implements RaopCallbackHandler {
                 Log.e(TAG, "Falha ao inicializar nativeInit do AirPlay");
                 return;
             }
+
+            // Configuração OBRIGATÓRIA do motor de áudio C++ (AudioEngine / Oboe)
+            boolean audioConfigured = NativeBridge.nativeServerAudioConfigure(
+                    serverHandle,
+                    7,      // cushionMs: 7ms
+                    95,     // percentilePct: 95
+                    0,      // oboeBufferFrames: 0 (default hardware burst)
+                    true,   // forceSwAlac: true (FFmpeg ALAC software decoder)
+                    true,   // realtimePriority: true
+                    true,   // lowLatency: true
+                    false   // benchmarkLog: false
+            );
+            Log.i(TAG, "Motor de Áudio Nativo C++ configurado com sucesso: " + audioConfigured);
 
             // Ativação explícita de Codecs ALAC e AAC
             NativeBridge.nativeSetH265Enabled(serverHandle, true);
@@ -288,7 +300,7 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public void onAudioFormat(int contentType, int samplesPerFrame, boolean isScreen) {
-        String formatName = (contentType == 0) ? "ALAC Lossless" : (contentType == 1 ? "AAC-LC" : "AAC-ELD");
+        String formatName = (contentType == 2) ? "ALAC Lossless" : (contentType == 4 ? "AAC-LC" : "AAC-ELD");
         Log.i(TAG, "Iniciando áudio nativo Oboe: " + formatName + " (spf=" + samplesPerFrame + ")");
         
         if (audioManager != null) {

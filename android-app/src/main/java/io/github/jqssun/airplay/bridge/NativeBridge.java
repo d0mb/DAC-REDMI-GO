@@ -21,14 +21,14 @@ public class NativeBridge {
     public static native Map<String, String> nativeGetRaopTxtRecords(long handle);
     public static native String nativeGetServerName(long handle);
     public static native long nativeInit(RaopCallbackHandler handler, byte[] hwAddr, String serverName, String password, boolean audioOnly, boolean allowMirroring);
-    public static native boolean nativeServerAudioConfigure(long handle, int sampleRate, int channels, int bitsPerSample, boolean isFloat, boolean isSigned, boolean isBigEndian, boolean isInterleaved);
+    public static native boolean nativeServerAudioConfigure(long handle, int cushionMs, int percentilePct, int oboeBufferFrames, boolean forceSwAlac, boolean realtimePriority, boolean lowLatency, boolean benchmarkLog);
     public static native boolean nativeServerAudioDebug(long handle, ByteBuffer buffer);
     public static native void nativeServerAudioFormat(long handle, int format, int sampleRate);
     public static native boolean nativeServerAudioStart(long handle);
     public static native void nativeServerAudioStop(long handle);
     public static native void nativeSetAudioEnabled(long handle, boolean enabled);
     public static native void nativeSetCodecs(long handle, boolean h264, boolean hevc);
-    public static native void nativeSetDefaultStreamValues(int width, int height);
+    public static native void nativeSetDefaultStreamValues(int sampleRate, int framesPerBurst);
     public static native void nativeSetDisplaySize(long handle, int width, int height, int refreshRate);
     public static native void nativeSetH265Enabled(long handle, boolean enabled);
     public static native void nativeSetHlsEnabled(long handle, boolean enabled);
