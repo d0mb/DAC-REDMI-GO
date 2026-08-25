@@ -13,14 +13,12 @@ import android.os.PowerManager;
 public class DacAudioService extends Service {
     private static final String CHANNEL_ID = "dac_audio_channel";
     private PowerManager.WakeLock wakeLock;
-    private BluetoothSinkManager bluetoothSinkManager;
-    private WifiAudioServer wifiAudioServer;
 
     @Override
     public void onCreate() {
         super.onCreate();
 
-        // Evitar que o processador entre em sleep profundo
+        // Evitar que o processador entre em sleep profundo durante reprodução Hi-Fi
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null) {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DAC::AudioServiceLock");
@@ -28,13 +26,6 @@ public class DacAudioService extends Service {
         }
 
         startForegroundNotification();
-
-        // Inicializar serviços de áudio
-        bluetoothSinkManager = new BluetoothSinkManager(this, null);
-        bluetoothSinkManager.init();
-
-        wifiAudioServer = WifiAudioServer.getInstance(this);
-        wifiAudioServer.start();
     }
 
     private void startForegroundNotification() {
@@ -50,8 +41,8 @@ public class DacAudioService extends Service {
             }
 
             Notification notification = new Notification.Builder(this, CHANNEL_ID)
-                    .setContentTitle("DAC Hub Ativo")
-                    .setContentText("Receptor de áudio Bluetooth e Wi-Fi em execução")
+                    .setContentTitle("DAC Hub Pro Ativo")
+                    .setContentText("Serviço de Áudio Hi-Fi em execução de alta prioridade")
                     .setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
                     .build();
 
@@ -67,7 +58,6 @@ public class DacAudioService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (wifiAudioServer != null) wifiAudioServer.stop();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
     }
 

@@ -1,10 +1,9 @@
 package com.dachub.audio;
 
+import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -13,60 +12,67 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.util.Log;
-import java.io.InputStream;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 public class BluetoothSinkManager {
     private static final String TAG = "BluetoothSinkManager";
-    private final Context context;
-    private final BluetoothAdapter bluetoothAdapter;
-    private SinkStatusListener listener;
-
-    private static final UUID A2DP_SINK_UUID = UUID.fromString("0000110B-0000-1000-8000-00805F9B34FB");
-    private static final UUID AVRCP_TARGET_UUID = UUID.fromString("0000110C-0000-1000-8000-00805F9B34FB");
-
-    private BluetoothProfile a2dpSinkProfile;
-    private AudioTrack audioTrack;
-    private boolean isListening = false;
-    private volatile String connectedDeviceName = null;
 
     public interface SinkStatusListener {
         void onStatusChanged(String status, String connectedDevice);
         void onDevicesUpdated();
     }
 
+    private final Context context;
+    private final SinkStatusListener listener;
+    private BluetoothAdapter bluetoothAdapter;
+    private BluetoothProfile a2dpSinkProfile;
+    private AudioTrack audioTrack;
+    private boolean isReceiverRegistered = false;
+
     public BluetoothSinkManager(Context context, SinkStatusListener listener) {
         this.context = context;
         this.listener = listener;
         this.bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        initAudioTrack();
         registerReceivers();
     }
 
-    private void initAudioTrack() {
-        try {
-            int sampleRate = 44100;
-            int bufferSize = AudioTrack.getMinBufferSize(
-                    sampleRate,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT
-            );
+    private synchronized AudioTrack getOrCreateAudioTrack() {
+        if (audioTrack == null) {
+            try {
+                int sampleRate = 44100;
+                int bufferSize = AudioTrack.getMinBufferSize(
+                        sampleRate,
+                        AudioFormat.CHANNEL_OUT_STEREO,
+                        AudioFormat.ENCODING_PCM_16BIT
+                );
 
-            audioTrack = new AudioTrack(
-                    AudioManager.STREAM_MUSIC,
-                    sampleRate,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT,
-                    Math.max(bufferSize, 8192),
-                    AudioTrack.MODE_STREAM
-            );
-            audioTrack.play();
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao inicializar AudioTrack", e);
+                audioTrack = new AudioTrack(
+                        AudioManager.STREAM_MUSIC,
+                        sampleRate,
+                        AudioFormat.CHANNEL_OUT_STEREO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        Math.max(bufferSize, 8192),
+                        AudioTrack.MODE_STREAM
+                );
+                audioTrack.play();
+            } catch (Exception e) {
+                Log.e(TAG, "Erro ao inicializar AudioTrack Bluetooth", e);
+            }
+        }
+        return audioTrack;
+    }
+
+    public synchronized void releaseAudioTrack() {
+        if (audioTrack != null) {
+            try {
+                audioTrack.stop();
+                audioTrack.release();
+            } catch (Exception ignored) {}
+            audioTrack = null;
         }
     }
 
@@ -83,68 +89,38 @@ public class BluetoothSinkManager {
         try {
             bluetoothAdapter.setName("DAC-HiFi-Audio");
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao definir nome BT", e);
+            Log.w(TAG, "Não foi possível definir nome do Bluetooth", e);
         }
 
-        connectProfileProxy();
-        startSdpAudioServers();
-        makeDiscoverable();
+        connectA2dpSinkProfile();
     }
 
-    private void connectProfileProxy() {
+    private void connectA2dpSinkProfile() {
         try {
             bluetoothAdapter.getProfileProxy(context, new BluetoothProfile.ServiceListener() {
                 @Override
                 public void onServiceConnected(int profile, BluetoothProfile proxy) {
                     if (profile == 11) { // A2DP_SINK
                         a2dpSinkProfile = proxy;
-                        Log.i(TAG, "Perfil A2DP_SINK conectado!");
-                        if (listener != null) listener.onStatusChanged("Receptor A2DP Sink Ativo", null);
+                        Log.i(TAG, "Perfil A2DP Sink conectado com sucesso!");
+                        if (listener != null) {
+                            listener.onStatusChanged("Pronto (Sink Ativo)", null);
+                        }
                     }
                 }
 
                 @Override
                 public void onServiceDisconnected(int profile) {
-                    if (profile == 11) a2dpSinkProfile = null;
+                    if (profile == 11) {
+                        a2dpSinkProfile = null;
+                        Log.i(TAG, "Perfil A2DP Sink desconectado.");
+                        releaseAudioTrack();
+                    }
                 }
             }, 11);
         } catch (Exception e) {
-            Log.w(TAG, "Aviso proxy A2DP_SINK: " + e.getMessage());
+            Log.e(TAG, "Erro ao obter proxy A2DP Sink", e);
         }
-    }
-
-    private void startSdpAudioServers() {
-        if (isListening) return;
-        isListening = true;
-
-        new Thread(() -> {
-            try (BluetoothServerSocket serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord("DAC-HiFi-Audio", A2DP_SINK_UUID)) {
-                while (isListening) {
-                    try {
-                        BluetoothSocket socket = serverSocket.accept();
-                        handleAudioSocket(socket);
-                    } catch (Exception ignored) {}
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Servidor SDP: " + e.getMessage());
-            }
-        }).start();
-    }
-
-    private void handleAudioSocket(BluetoothSocket socket) {
-        new Thread(() -> {
-            try (InputStream in = socket.getInputStream()) {
-                byte[] buffer = new byte[4096];
-                int read;
-                while ((read = in.read(buffer)) != -1 && isListening) {
-                    if (audioTrack != null) {
-                        audioTrack.write(buffer, 0, read);
-                    }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Stream BT encerrado", e);
-            }
-        }).start();
     }
 
     public void makeDiscoverable() {
@@ -152,9 +128,7 @@ public class BluetoothSinkManager {
         try {
             Method setScanMode = BluetoothAdapter.class.getMethod("setScanMode", int.class, int.class);
             setScanMode.invoke(bluetoothAdapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, 300);
-            if (listener != null) {
-                listener.onStatusChanged("Visível para pareamento", null);
-            }
+            Log.i(TAG, "Dispositivo configurado como visível por 300 segundos.");
         } catch (Exception e) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
             discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
@@ -165,73 +139,87 @@ public class BluetoothSinkManager {
 
     public List<BluetoothDevice> getBondedDevices() {
         List<BluetoothDevice> list = new ArrayList<>();
-        if (bluetoothAdapter != null) {
-            Set<BluetoothDevice> bonded = bluetoothAdapter.getBondedDevices();
-            if (bonded != null) {
-                list.addAll(bonded);
+        if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+            Set<BluetoothDevice> paired = bluetoothAdapter.getBondedDevices();
+            if (paired != null) {
+                list.addAll(paired);
             }
         }
         return list;
     }
 
     public void unpairDevice(BluetoothDevice device) {
+        if (device == null) return;
         try {
-            Method removeBondMethod = device.getClass().getMethod("removeBond");
-            removeBondMethod.invoke(device);
-            if (listener != null) {
-                listener.onDevicesUpdated();
-            }
+            Method removeBond = device.getClass().getMethod("removeBond");
+            removeBond.invoke(device);
+            Log.i(TAG, "Dispositivo desemparelhado: " + device.getName());
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao desparear dispositivo", e);
+            Log.e(TAG, "Erro ao desemparelhar dispositivo", e);
         }
-    }
-
-    public void disconnectAll() {
-        for (BluetoothDevice dev : getBondedDevices()) {
-            unpairDevice(dev);
-        }
-        if (bluetoothAdapter != null) {
-            bluetoothAdapter.disable();
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(bluetoothAdapter::enable, 1000);
-        }
-    }
-
-    public String getConnectedDeviceName() {
-        return connectedDeviceName;
     }
 
     private void registerReceivers() {
+        if (isReceiverRegistered) return;
         IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-        filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+        filter.addAction("android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED");
+        filter.addAction("android.bluetooth.a2dp-sink.profile.action.PLAYING_STATE_CHANGED");
 
-        context.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context ctx, Intent intent) {
-                String action = intent.getAction();
-                if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                    BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                    connectedDeviceName = device != null ? device.getName() : "Dispositivo Pareado";
-                    if (listener != null) {
-                        listener.onStatusChanged("Conectado: " + connectedDeviceName, connectedDeviceName);
-                        listener.onDevicesUpdated();
-                    }
-                } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                    connectedDeviceName = null;
-                    if (listener != null) {
-                        listener.onStatusChanged("Aguardando pareamento...", null);
-                        listener.onDevicesUpdated();
-                    }
-                } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
-                    if (listener != null) listener.onDevicesUpdated();
-                }
-            }
-        }, filter);
+        context.registerReceiver(bluetoothReceiver, filter);
+        isReceiverRegistered = true;
     }
 
+    private final BroadcastReceiver bluetoothReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action == null) return;
+
+            if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+                if (listener != null) listener.onDevicesUpdated();
+            } else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                if (state == BluetoothAdapter.STATE_ON) {
+                    init();
+                }
+            } else if (action.contains("CONNECTION_STATE_CHANGED")) {
+                int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                String devName = device != null ? device.getName() : "Dispositivo";
+
+                if (state == BluetoothProfile.STATE_CONNECTED) {
+                    if (listener != null) listener.onStatusChanged("Conectado", devName);
+                } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                    if (listener != null) listener.onStatusChanged("Desconectado", null);
+                    releaseAudioTrack();
+                }
+                if (listener != null) listener.onDevicesUpdated();
+            } else if (action.contains("PLAYING_STATE_CHANGED")) {
+                int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, 11);
+                if (state == 10) { // PLAYING
+                    getOrCreateAudioTrack();
+                    if (listener != null) listener.onStatusChanged("Reproduzindo", null);
+                } else {
+                    releaseAudioTrack();
+                    if (listener != null) listener.onStatusChanged("Conectado", null);
+                }
+            }
+        }
+    };
+
     public void release() {
-        // Recursos liberados
+        if (isReceiverRegistered) {
+            try {
+                context.unregisterReceiver(bluetoothReceiver);
+            } catch (Exception ignored) {}
+            isReceiverRegistered = false;
+        }
+        if (a2dpSinkProfile != null && bluetoothAdapter != null) {
+            bluetoothAdapter.closeProfileProxy(11, a2dpSinkProfile);
+        }
+        releaseAudioTrack();
     }
 }

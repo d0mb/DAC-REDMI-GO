@@ -126,7 +126,7 @@ public class AirPlayServer implements RaopCallbackHandler {
                 return;
             }
 
-            // ATIVAÇÃO DOS CODECS NATIVOS (ALAC & AAC)
+            // Ativação explícita de Codecs ALAC e AAC
             NativeBridge.nativeSetH265Enabled(serverHandle, true);
             NativeBridge.nativeSetCodecs(serverHandle, true, true);
             NativeBridge.nativeSetHlsEnabled(serverHandle, true);
@@ -157,6 +157,7 @@ public class AirPlayServer implements RaopCallbackHandler {
 
         if (serverHandle != 0) {
             try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
                 NativeBridge.nativeStop(serverHandle);
                 NativeBridge.nativeDestroy(serverHandle);
             } catch (Throwable t) {
@@ -164,9 +165,25 @@ public class AirPlayServer implements RaopCallbackHandler {
             }
             serverHandle = 0;
         }
+
+        if (audioManager != null) {
+            try {
+                audioManager.abandonAudioFocus(null);
+            } catch (Exception ignored) {}
+        }
     }
 
     public void disconnect() {
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
+            } catch (Throwable ignored) {}
+        }
+        if (audioManager != null) {
+            try {
+                audioManager.abandonAudioFocus(null);
+            } catch (Exception ignored) {}
+        }
         isStreaming = false;
         connectedClientIp = "Nenhum";
         currentTitle = "Aguardando Áudio...";
@@ -270,8 +287,25 @@ public class AirPlayServer implements RaopCallbackHandler {
     }
 
     @Override
-    public void onAudioFormat(int channels, int samplesPerFrame, boolean isFloat) {
-        Log.i(TAG, "Áudio AirPlay ALAC ativo: " + channels + " canais, spf=" + samplesPerFrame);
+    public void onAudioFormat(int contentType, int samplesPerFrame, boolean isScreen) {
+        String formatName = (contentType == 0) ? "ALAC Lossless" : (contentType == 1 ? "AAC-LC" : "AAC-ELD");
+        Log.i(TAG, "Iniciando áudio nativo Oboe: " + formatName + " (spf=" + samplesPerFrame + ")");
+        
+        if (audioManager != null) {
+            try {
+                audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+            } catch (Exception ignored) {}
+        }
+
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStart(serverHandle);
+                NativeBridge.nativeServerAudioFormat(serverHandle, contentType, samplesPerFrame);
+            } catch (Throwable t) {
+                Log.e(TAG, "Erro iniciando áudio nativo C++", t);
+            }
+        }
+
         isStreaming = true;
         connectedClientIp = "Apple iPhone";
         if (listener != null) {
@@ -282,6 +316,11 @@ public class AirPlayServer implements RaopCallbackHandler {
     @Override
     public void onAudioTeardown() {
         Log.i(TAG, "Áudio AirPlay finalizado pelo iPhone (Teardown)");
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
+            } catch (Throwable ignored) {}
+        }
         disconnect();
     }
 
@@ -302,12 +341,22 @@ public class AirPlayServer implements RaopCallbackHandler {
     @Override
     public void onConnectionDestroy() {
         Log.d(TAG, "Conexão AirPlay finalizada pelo iPhone.");
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
+            } catch (Throwable ignored) {}
+        }
         disconnect();
     }
 
     @Override
     public void onConnectionReset(int code) {
         Log.d(TAG, "Conexão AirPlay reset: " + code);
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
+            } catch (Throwable ignored) {}
+        }
         disconnect();
     }
 
@@ -330,9 +379,14 @@ public class AirPlayServer implements RaopCallbackHandler {
         if (data == null || data.length < 8) return;
         try {
             Map<String, String> tags = parseDmapMetadata(data);
-            if (tags.containsKey("title")) currentTitle = tags.get("title");
-            if (tags.containsKey("artist")) currentArtist = tags.get("artist");
-            if (tags.containsKey("album")) currentAlbum = tags.get("album");
+            if (tags.containsKey("minm")) currentTitle = tags.get("minm");
+            else if (tags.containsKey("title")) currentTitle = tags.get("title");
+
+            if (tags.containsKey("asar")) currentArtist = tags.get("asar");
+            else if (tags.containsKey("artist")) currentArtist = tags.get("artist");
+
+            if (tags.containsKey("asal")) currentAlbum = tags.get("asal");
+            else if (tags.containsKey("album")) currentAlbum = tags.get("album");
 
             if (listener != null) {
                 listener.onMetadataReceived(currentTitle, currentArtist, currentAlbum);
@@ -354,9 +408,7 @@ public class AirPlayServer implements RaopCallbackHandler {
             byte[] valBytes = new byte[len];
             buf.get(valBytes);
             String val = new String(valBytes, StandardCharsets.UTF_8).trim();
-            if ("minm".equals(code)) map.put("title", val);
-            else if ("asar".equals(code)) map.put("artist", val);
-            else if ("asal".equals(code)) map.put("album", val);
+            map.put(code, val);
         }
         return map;
     }
