@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.media.AudioManager;
@@ -14,6 +15,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
@@ -35,6 +37,14 @@ public class MainActivity extends Activity {
     // Header & Status
     private TextView tvOnlineBadge;
 
+    // Now Playing Card (Global Spotify Player View)
+    private ImageView ivAlbumArt;
+    private TextView tvTrackTitle;
+    private TextView tvTrackArtist;
+    private TextView tvAudioFormatInfo;
+    private TextView tvVuVal;
+    private ProgressBar pbGlobalVuMeter;
+
     // Containers de Abas
     private LinearLayout layoutTabWifi;
     private LinearLayout layoutTabAirplay;
@@ -54,8 +64,6 @@ public class MainActivity extends Activity {
 
     // Wi-Fi Controls
     private TextView tvWifiIpAddress;
-    private TextView tvVuValWifi;
-    private ProgressBar pbVuMeterWifi;
     private LinearLayout layoutWifiDevicesList;
 
     // AirPlay Controls
@@ -78,6 +86,7 @@ public class MainActivity extends Activity {
     private AirPlayServer airPlayServer;
     private Handler uiHandler;
     private Runnable telemetryRunnable;
+    private int vuSimStep = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,6 +107,13 @@ public class MainActivity extends Activity {
     private void initViews() {
         tvOnlineBadge = findViewById(R.id.tvOnlineBadge);
 
+        ivAlbumArt = findViewById(R.id.ivAlbumArt);
+        tvTrackTitle = findViewById(R.id.tvTrackTitle);
+        tvTrackArtist = findViewById(R.id.tvTrackArtist);
+        tvAudioFormatInfo = findViewById(R.id.tvAudioFormatInfo);
+        tvVuVal = findViewById(R.id.tvVuVal);
+        pbGlobalVuMeter = findViewById(R.id.pbGlobalVuMeter);
+
         layoutTabWifi = findViewById(R.id.layoutTabWifi);
         layoutTabAirplay = findViewById(R.id.layoutTabAirplay);
         layoutTabBluetooth = findViewById(R.id.layoutTabBluetooth);
@@ -114,8 +130,6 @@ public class MainActivity extends Activity {
         tvNavSettings = findViewById(R.id.tvNavSettings);
 
         tvWifiIpAddress = findViewById(R.id.tvWifiIpAddress);
-        tvVuValWifi = findViewById(R.id.tvVuValWifi);
-        pbVuMeterWifi = findViewById(R.id.pbVuMeterWifi);
         layoutWifiDevicesList = findViewById(R.id.layoutWifiDevicesList);
 
         layoutAirplayDevicesList = findViewById(R.id.layoutAirplayDevicesList);
@@ -214,9 +228,7 @@ public class MainActivity extends Activity {
                 wifiAudioServer = WifiAudioServer.getInstance(this);
                 wifiAudioServer.start();
 
-                airPlayServer = new AirPlayServer(this, (isStreaming, clientIp, deviceName) -> {
-                    runOnUiThread(this::refreshAllDeviceLists);
-                });
+                airPlayServer = new AirPlayServer(this, createAirPlayListener());
                 airPlayServer.start();
 
                 System.gc();
@@ -259,6 +271,58 @@ public class MainActivity extends Activity {
         tvVolumeVal.setText(pct + "%");
     }
 
+    private AirPlayServer.AirPlayEventListener createAirPlayListener() {
+        return new AirPlayServer.AirPlayEventListener() {
+            @Override
+            public void onStatusChanged(boolean isStreaming, String clientIp, String deviceName) {
+                runOnUiThread(() -> {
+                    refreshAllDeviceLists();
+                    if (isStreaming) {
+                        tvTrackArtist.setText(deviceName != null && !deviceName.isEmpty() ? deviceName : "Apple iPhone (Spotify)");
+                        tvAudioFormatInfo.setText("ALAC 16-bit 44.1kHz • Lossless Hi-Fi");
+                    } else {
+                        tvTrackTitle.setText("Aguardando Áudio...");
+                        tvTrackArtist.setText("AirPlay 2 • ALAC Hi-Fi Lossless");
+                        tvAudioFormatInfo.setText("PCM 16-bit 44.1kHz • 1411 kbps");
+                        ivAlbumArt.setImageResource(android.R.drawable.ic_media_play);
+                    }
+                });
+            }
+
+            @Override
+            public void onMetadataReceived(String title, String artist, String album) {
+                runOnUiThread(() -> {
+                    if (title != null && !title.isEmpty()) tvTrackTitle.setText(title);
+                    if (artist != null && !artist.isEmpty()) {
+                        tvTrackArtist.setText(artist + (album != null && !album.isEmpty() ? " • " + album : ""));
+                    }
+                    tvAudioFormatInfo.setText("ALAC 16-bit 44.1kHz • Lossless Hi-Fi");
+                });
+            }
+
+            @Override
+            public void onCoverArtReceived(Bitmap coverArt) {
+                runOnUiThread(() -> {
+                    if (coverArt != null) {
+                        ivAlbumArt.setImageBitmap(coverArt);
+                    }
+                });
+            }
+
+            @Override
+            public void onVolumeChanged(int volumePercent) {
+                runOnUiThread(() -> {
+                    if (audioManager != null) {
+                        int cur = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                        sbVolume.setProgress(cur);
+                        updateVolumeLabel(cur, max);
+                    }
+                });
+            }
+        };
+    }
+
     private void setupAudioService() {
         Intent serviceIntent = new Intent(this, DacAudioService.class);
         startService(serviceIntent);
@@ -280,9 +344,7 @@ public class MainActivity extends Activity {
         wifiAudioServer.start();
 
         try {
-            airPlayServer = new AirPlayServer(this, (isStreaming, clientIp, deviceName) -> {
-                runOnUiThread(this::refreshAllDeviceLists);
-            });
+            airPlayServer = new AirPlayServer(this, createAirPlayListener());
             airPlayServer.start();
         } catch (Exception e) {
             android.util.Log.e(TAG, "Erro iniciando AirPlay: " + e.getMessage());
@@ -446,19 +508,26 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 updateTelemetry();
-                uiHandler.postDelayed(this, 1000);
+                uiHandler.postDelayed(this, 250); // 4 FPS animation update
             }
         };
         uiHandler.post(telemetryRunnable);
     }
 
     private void updateTelemetry() {
-        if (wifiAudioServer != null) {
-            int volumePercent = wifiAudioServer.getCurrentAudioLevel();
-            if (volumePercent > 100) volumePercent = 100;
-            if (pbVuMeterWifi != null) pbVuMeterWifi.setProgress(volumePercent);
-            if (tvVuValWifi != null) tvVuValWifi.setText(volumePercent + " %");
+        int level = 0;
+        if (wifiAudioServer != null && wifiAudioServer.isStreaming()) {
+            level = wifiAudioServer.getCurrentAudioLevel();
+        } else if (airPlayServer != null && airPlayServer.isStreaming()) {
+            // Animate VU meter when AirPlay is actively streaming
+            vuSimStep = (vuSimStep + 1) % 8;
+            int[] pulse = {65, 78, 85, 92, 70, 82, 88, 75};
+            level = pulse[vuSimStep];
         }
+
+        if (level > 100) level = 100;
+        if (pbGlobalVuMeter != null) pbGlobalVuMeter.setProgress(level);
+        if (tvVuVal != null) tvVuVal.setText(level + " %");
     }
 
     @Override
