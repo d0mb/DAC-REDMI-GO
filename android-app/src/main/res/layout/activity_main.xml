@@ -1,326 +1,684 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
-    android:fillViewport="true">
+    android:background="#121212">
 
-    <LinearLayout
+    <!-- ÁREA DE CONTEÚDO ROLÁVEL (ACIMA DO FOOTER FIXO) -->
+    <ScrollView
+        android:id="@+id/scrollContent"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:layout_height="match_parent"
+        android:layout_above="@id/layoutBottomNav"
+        android:fillViewport="true">
 
-        <!-- HEADER MINIMALISTA ESTILO SPOTIFY -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="DAC Hub Pro"
-                    android:textColor="#FFFFFF"
-                    android:textSize="22sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Receptor Hi-Fi Lossless (P2 3.5mm)"
-                    android:textColor="#A7A7A7"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvOnlineBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_badge_online"
-                android:paddingLeft="12dp"
-                android:paddingTop="6dp"
-                android:paddingRight="12dp"
-                android:paddingBottom="6dp"
-                android:text="🟢 PRONTO"
-                android:textColor="#1DB954"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- SELETOR DE MODOS EM PÍLULAS (CHIPS SPOTIFY COM 44DP DE ALTURA) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnModeWifi"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
-                android:background="@drawable/bg_pill_active"
-                android:text="💻 Wi-Fi"
-                android:textColor="#000000"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnModeAirPlay"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
-                android:background="@drawable/bg_pill_inactive"
-                android:text="🍏 AirPlay"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnModeBluetooth"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pill_inactive"
-                android:text="🔵 Bluetooth"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- CARD 1: NOW PLAYING / RECEPTOR CARD (SPOTIFY AESTHETICS) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_card_spotify"
             android:orientation="vertical"
-            android:padding="18dp">
+            android:padding="20dp">
 
+            <!-- HEADER ESTILO SPOTIFY -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <!-- Ícone / Capa de Áudio com cantos suaves -->
-                <LinearLayout
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:background="@drawable/bg_device_tile"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📻"
-                        android:textSize="26sp" />
-                </LinearLayout>
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/tvActiveModeTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Transmissão Wi-Fi (Lossless)"
+                        android:text="DAC Hub Pro"
+                        android:textColor="#FFFFFF"
+                        android:textSize="22sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Receptor Hi-Fi Lossless • P2 3.5mm"
+                        android:textColor="#B3B3B3"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvOnlineBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_badge_online"
+                    android:paddingLeft="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingRight="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="🟢 PRONTO"
+                    android:textColor="#1ED760"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- ======================================================== -->
+            <!-- ABA 1: CONTEÚDO WI-FI (PC STREAMING)                     -->
+            <!-- ======================================================== -->
+            <LinearLayout
+                android:id="@+id/layoutTabWifi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <!-- Card de Transmissão Wi-Fi -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:background="@drawable/bg_device_tile"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="💻"
+                                android:textSize="26sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Transmissão PC (Wi-Fi)"
+                                android:textColor="#FFFFFF"
+                                android:textSize="15sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvWifiIpAddress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="IP: http://192.168.15.12:8080"
+                                android:textColor="#1ED760"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Taxa: PCM 16-bit 44.1kHz • Lossless Direct (1411 kbps)"
+                        android:textColor="#B3B3B3"
+                        android:textSize="12sp" />
+
+                    <!-- VU METER VERDE SPOTIFY -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Nível de Sinal (VU Meter):"
+                                android:textColor="#727272"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/tvVuValWifi"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 %"
+                                android:textColor="#1ED760"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <ProgressBar
+                            android:id="@+id/pbVuMeterWifi"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp"
+                            android:layout_marginTop="6dp"
+                            android:max="100"
+                            android:progress="0" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Card Dispositivos PC Conectados -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Computadores Conectados"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutWifiDevicesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvNoWifiDevices"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Aguardando transmissão do computador..."
+                            android:textColor="#727272"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ======================================================== -->
+            <!-- ABA 2: CONTEÚDO APPLE AIRPLAY (IPHONE / IPAD / MAC)      -->
+            <!-- ======================================================== -->
+            <LinearLayout
+                android:id="@+id/layoutTabAirplay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:background="@drawable/bg_device_tile"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🍏"
+                                android:textSize="26sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Apple AirPlay 2 Receiver"
+                                android:textColor="#FFFFFF"
+                                android:textSize="15sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="Nome: DAC-HiFi-Audio"
+                                android:textColor="#1ED760"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Taxa: ALAC 16-bit 44.1kHz • Decodificador Nativo C++"
+                        android:textColor="#B3B3B3"
+                        android:textSize="12sp" />
+
+                    <!-- Dica rápida de uso AirPlay -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_device_tile"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="📱 Como conectar pelo iPhone:"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="1. Abra a Central de Controle no seu iPhone.\n2. Toque no ícone de Áudio/AirPlay.\n3. Selecione 'DAC-HiFi-Audio' para transmitir."
+                            android:textColor="#B3B3B3"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Dispositivo iPhone Conectado -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Dispositivo Apple Conectado"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutAirplayDevicesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvNoAirplayDevices"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Nenhum iPhone transmitindo no momento."
+                            android:textColor="#727272"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ======================================================== -->
+            <!-- ABA 3: CONTEÚDO BLUETOOTH (A2DP SINK)                     -->
+            <!-- ======================================================== -->
+            <LinearLayout
+                android:id="@+id/layoutTabBluetooth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="54dp"
+                            android:layout_height="54dp"
+                            android:background="@drawable/bg_device_tile"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🔵"
+                                android:textSize="26sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Bluetooth Audio Receiver"
+                                android:textColor="#FFFFFF"
+                                android:textSize="15sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="Nome: DAC-HiFi-Audio"
+                                android:textColor="#1ED760"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnMakeDiscoverable"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_button_action"
+                        android:text="🔵 Ativar Visibilidade Bluetooth (300s)"
+                        android:textColor="#1ED760"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Dispositivos Pareados -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Dispositivos Pareados"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutBluetoothDevicesList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvNoBluetoothDevices"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Nenhum dispositivo Bluetooth pareado."
+                            android:textColor="#727272"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ======================================================== -->
+            <!-- ABA 4: LIMPEZA, PORT RESET & AJUSTES                     -->
+            <!-- ======================================================== -->
+            <LinearLayout
+                android:id="@+id/layoutTabSettings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <!-- Card de Limpeza de Portas -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🧹 Manutenção &amp; Reset de Portas"
                         android:textColor="#FFFFFF"
                         android:textSize="15sp"
                         android:fontFamily="sans-serif-medium"
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tvActiveModeDetails"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:text="IP: http://192.168.15.12:8080"
-                        android:textColor="#1DB954"
-                        android:textSize="13sp" />
-                </LinearLayout>
-            </LinearLayout>
+                        android:layout_marginTop="6dp"
+                        android:text="Libera as portas de rede (5000, 7000, 8080), fecha conexões presas e reinicia os serviços limpos para evitar travamentos."
+                        android:textColor="#B3B3B3"
+                        android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/tvFormatDetails"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="Taxa: PCM 16-bit 44.1kHz • Lossless Direct (1411 kbps)"
-                android:textColor="#A7A7A7"
-                android:textSize="12sp" />
-
-            <!-- VU METER / ONDAS SONORAS VERDES SPOTIFY -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Nível de Sinal (VU Meter):"
-                        android:textColor="#727272"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/tvVuVal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0 %"
-                        android:textColor="#1DB954"
-                        android:textSize="11sp"
+                    <Button
+                        android:id="@+id/btnCleanSystem"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_clean_button"
+                        android:text="🧹 EXECUTAR LIMPEZA E LIBERAR PORTAS"
+                        android:textColor="#1ED760"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <ProgressBar
-                    android:id="@+id/pbVuMeter"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="8dp"
-                    android:layout_marginTop="6dp"
-                    android:max="100"
-                    android:progress="0" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- CARD 2: DISPOSITIVOS CONECTADOS (SPOTIFY CONNECT STYLE) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_card_spotify"
-            android:orientation="vertical"
-            android:padding="18dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Dispositivos Conectados"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🔊 Spotify Connect"
-                    android:textColor="#1DB954"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/layoutDevicesList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tvNoDevices"
+                <!-- Card de Volume Master Analógico P2 -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Aguardando transmissão do PC ou iPhone..."
-                    android:textColor="#727272"
-                    android:textSize="12sp" />
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_card_spotify"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Volume Saída Analógica (P2)"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvVolumeVal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="100%"
+                            android:textColor="#1ED760"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <SeekBar
+                        android:id="@+id/sbVolume"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:max="15"
+                        android:progress="15" />
+
+                    <Button
+                        android:id="@+id/btnTestTone"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_button_action"
+                        android:text="🔊 Testar Saída P2 (Tom Senoidal 1kHz)"
+                        android:textColor="#1ED760"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btnMakeDiscoverable"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_button_action"
-                android:text="🔵 Ativar Visibilidade Bluetooth"
-                android:textColor="#1DB954"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
         </LinearLayout>
+    </ScrollView>
 
-        <!-- CARD 3: VOLUME MASTER & TESTE P2 -->
+    <!-- ======================================================== -->
+    <!-- FOOTER FIXO (BOTTOM NAVIGATION BAR ESTILO SPOTIFY)      -->
+    <!-- ======================================================== -->
+    <LinearLayout
+        android:id="@+id/layoutBottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="62dp"
+        android:layout_alignParentBottom="true"
+        android:background="@drawable/bg_bottom_nav"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- TAB 1: WI-FI -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_card_spotify"
-            android:orientation="vertical"
-            android:padding="18dp">
+            android:id="@+id/tabNavWifi"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/ivNavWifi"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:text="💻"
+                android:textSize="18sp" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Volume Saída Analógica (P2)"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvVolumeVal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="100%"
-                    android:textColor="#1DB954"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <SeekBar
-                android:id="@+id/sbVolume"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tvNavWifi"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:max="15"
-                android:progress="15" />
-
-            <Button
-                android:id="@+id/btnTestTone"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/bg_button_action"
-                android:text="🔊 Testar Saída de Áudio P2 (Tom 1kHz)"
-                android:textColor="#1DB954"
-                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                android:text="Wi-Fi (PC)"
+                android:textColor="#1ED760"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- TAB 2: AIRPLAY -->
+        <LinearLayout
+            android:id="@+id/tabNavAirplay"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/ivNavAirplay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍏"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvNavAirplay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="AirPlay"
+                android:textColor="#B3B3B3"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- TAB 3: BLUETOOTH -->
+        <LinearLayout
+            android:id="@+id/tabNavBluetooth"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/ivNavBluetooth"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔵"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvNavBluetooth"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Bluetooth"
+                android:textColor="#B3B3B3"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- TAB 4: LIMPEZA & AJUSTES -->
+        <LinearLayout
+            android:id="@+id/tabNavSettings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/ivNavSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🧹"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvNavSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Limpeza"
+                android:textColor="#B3B3B3"
+                android:textSize="11sp" />
+        </LinearLayout>
+
     </LinearLayout>
-</ScrollView>
+
+</RelativeLayout>

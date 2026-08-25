@@ -25,28 +25,53 @@ import java.util.List;
 public class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
 
-    public static final int MODE_WIFI = 0;
-    public static final int MODE_AIRPLAY = 1;
-    public static final int MODE_BLUETOOTH = 2;
+    public static final int TAB_WIFI = 0;
+    public static final int TAB_AIRPLAY = 1;
+    public static final int TAB_BLUETOOTH = 2;
+    public static final int TAB_SETTINGS = 3;
 
-    private int currentMode = MODE_WIFI;
+    private int currentTab = TAB_WIFI;
 
+    // Header & Status
     private TextView tvOnlineBadge;
-    private Button btnModeWifi;
-    private Button btnModeAirPlay;
-    private Button btnModeBluetooth;
-    private TextView tvActiveModeTitle;
-    private TextView tvActiveModeDetails;
-    private TextView tvFormatDetails;
-    private TextView tvVuVal;
-    private ProgressBar pbVuMeter;
-    private LinearLayout layoutDevicesList;
-    private TextView tvNoDevices;
+
+    // Containers de Abas
+    private LinearLayout layoutTabWifi;
+    private LinearLayout layoutTabAirplay;
+    private LinearLayout layoutTabBluetooth;
+    private LinearLayout layoutTabSettings;
+
+    // Footer Navigation Items
+    private LinearLayout tabNavWifi;
+    private LinearLayout tabNavAirplay;
+    private LinearLayout tabNavBluetooth;
+    private LinearLayout tabNavSettings;
+
+    private TextView tvNavWifi;
+    private TextView tvNavAirplay;
+    private TextView tvNavBluetooth;
+    private TextView tvNavSettings;
+
+    // Wi-Fi Controls
+    private TextView tvWifiIpAddress;
+    private TextView tvVuValWifi;
+    private ProgressBar pbVuMeterWifi;
+    private LinearLayout layoutWifiDevicesList;
+
+    // AirPlay Controls
+    private LinearLayout layoutAirplayDevicesList;
+
+    // Bluetooth Controls
     private Button btnMakeDiscoverable;
+    private LinearLayout layoutBluetoothDevicesList;
+
+    // Settings & Volume Controls
+    private Button btnCleanSystem;
     private TextView tvVolumeVal;
     private SeekBar sbVolume;
     private Button btnTestTone;
 
+    // Audio Managers & Servers
     private AudioManager audioManager;
     private BluetoothSinkManager bluetoothSinkManager;
     private WifiAudioServer wifiAudioServer;
@@ -66,30 +91,50 @@ public class MainActivity extends Activity {
         initViews();
         setupAudioService();
         setupVolumeControls();
-        setMode(MODE_WIFI);
+        switchTab(TAB_WIFI);
         setupTelemetryLoop();
     }
 
     private void initViews() {
         tvOnlineBadge = findViewById(R.id.tvOnlineBadge);
-        btnModeWifi = findViewById(R.id.btnModeWifi);
-        btnModeAirPlay = findViewById(R.id.btnModeAirPlay);
-        btnModeBluetooth = findViewById(R.id.btnModeBluetooth);
-        tvActiveModeTitle = findViewById(R.id.tvActiveModeTitle);
-        tvActiveModeDetails = findViewById(R.id.tvActiveModeDetails);
-        tvFormatDetails = findViewById(R.id.tvFormatDetails);
-        tvVuVal = findViewById(R.id.tvVuVal);
-        pbVuMeter = findViewById(R.id.pbVuMeter);
-        layoutDevicesList = findViewById(R.id.layoutDevicesList);
-        tvNoDevices = findViewById(R.id.tvNoDevices);
+
+        layoutTabWifi = findViewById(R.id.layoutTabWifi);
+        layoutTabAirplay = findViewById(R.id.layoutTabAirplay);
+        layoutTabBluetooth = findViewById(R.id.layoutTabBluetooth);
+        layoutTabSettings = findViewById(R.id.layoutTabSettings);
+
+        tabNavWifi = findViewById(R.id.tabNavWifi);
+        tabNavAirplay = findViewById(R.id.tabNavAirplay);
+        tabNavBluetooth = findViewById(R.id.tabNavBluetooth);
+        tabNavSettings = findViewById(R.id.tabNavSettings);
+
+        tvNavWifi = findViewById(R.id.tvNavWifi);
+        tvNavAirplay = findViewById(R.id.tvNavAirplay);
+        tvNavBluetooth = findViewById(R.id.tvNavBluetooth);
+        tvNavSettings = findViewById(R.id.tvNavSettings);
+
+        tvWifiIpAddress = findViewById(R.id.tvWifiIpAddress);
+        tvVuValWifi = findViewById(R.id.tvVuValWifi);
+        pbVuMeterWifi = findViewById(R.id.pbVuMeterWifi);
+        layoutWifiDevicesList = findViewById(R.id.layoutWifiDevicesList);
+
+        layoutAirplayDevicesList = findViewById(R.id.layoutAirplayDevicesList);
+
         btnMakeDiscoverable = findViewById(R.id.btnMakeDiscoverable);
+        layoutBluetoothDevicesList = findViewById(R.id.layoutBluetoothDevicesList);
+
+        btnCleanSystem = findViewById(R.id.btnCleanSystem);
         tvVolumeVal = findViewById(R.id.tvVolumeVal);
         sbVolume = findViewById(R.id.sbVolume);
         btnTestTone = findViewById(R.id.btnTestTone);
 
-        btnModeWifi.setOnClickListener(v -> setMode(MODE_WIFI));
-        btnModeAirPlay.setOnClickListener(v -> setMode(MODE_AIRPLAY));
-        btnModeBluetooth.setOnClickListener(v -> setMode(MODE_BLUETOOTH));
+        // Listeners do Footer
+        tabNavWifi.setOnClickListener(v -> switchTab(TAB_WIFI));
+        tabNavAirplay.setOnClickListener(v -> switchTab(TAB_AIRPLAY));
+        tabNavBluetooth.setOnClickListener(v -> switchTab(TAB_BLUETOOTH));
+        tabNavSettings.setOnClickListener(v -> switchTab(TAB_SETTINGS));
+
+        btnCleanSystem.setOnClickListener(v -> performSystemCleanup());
 
         btnTestTone.setOnClickListener(v -> {
             if (wifiAudioServer != null) {
@@ -106,53 +151,84 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void setMode(int mode) {
-        currentMode = mode;
+    private void switchTab(int tab) {
+        currentTab = tab;
 
-        // Resetar pílulas para o estilo inativo
-        btnModeWifi.setBackgroundResource(R.drawable.bg_pill_inactive);
-        btnModeWifi.setTextColor(Color.parseColor("#FFFFFF"));
-        btnModeAirPlay.setBackgroundResource(R.drawable.bg_pill_inactive);
-        btnModeAirPlay.setTextColor(Color.parseColor("#FFFFFF"));
-        btnModeBluetooth.setBackgroundResource(R.drawable.bg_pill_inactive);
-        btnModeBluetooth.setTextColor(Color.parseColor("#FFFFFF"));
+        // Ocultar todas as seções
+        layoutTabWifi.setVisibility(View.GONE);
+        layoutTabAirplay.setVisibility(View.GONE);
+        layoutTabBluetooth.setVisibility(View.GONE);
+        layoutTabSettings.setVisibility(View.GONE);
 
-        btnMakeDiscoverable.setVisibility(View.GONE);
+        // Resetar cores do Footer
+        tvNavWifi.setTextColor(Color.parseColor("#B3B3B3"));
+        tvNavWifi.setTypeface(null, Typeface.NORMAL);
+        tvNavAirplay.setTextColor(Color.parseColor("#B3B3B3"));
+        tvNavAirplay.setTypeface(null, Typeface.NORMAL);
+        tvNavBluetooth.setTextColor(Color.parseColor("#B3B3B3"));
+        tvNavBluetooth.setTypeface(null, Typeface.NORMAL);
+        tvNavSettings.setTextColor(Color.parseColor("#B3B3B3"));
+        tvNavSettings.setTypeface(null, Typeface.NORMAL);
 
-        if (mode == MODE_WIFI) {
-            btnModeWifi.setBackgroundResource(R.drawable.bg_pill_active);
-            btnModeWifi.setTextColor(Color.parseColor("#000000"));
-
-            tvActiveModeTitle.setText("Transmissão Wi-Fi (PC / Lossless)");
-            tvActiveModeTitle.setTextColor(Color.parseColor("#FFFFFF"));
-            String ip = (wifiAudioServer != null) ? wifiAudioServer.getIpAddress() : "192.168.15.12";
-            tvActiveModeDetails.setText("IP do Receptor: http://" + ip + ":8080");
-            tvActiveModeDetails.setTextColor(Color.parseColor("#1DB954"));
-            tvFormatDetails.setText("Taxa: PCM 16-bit 44.1kHz Estéreo • Lossless Direct (1411 kbps)");
-        } else if (mode == MODE_AIRPLAY) {
-            btnModeAirPlay.setBackgroundResource(R.drawable.bg_pill_active);
-            btnModeAirPlay.setTextColor(Color.parseColor("#000000"));
-
-            tvActiveModeTitle.setText("Apple AirPlay 2 (iPhone / iPad / Mac)");
-            tvActiveModeTitle.setTextColor(Color.parseColor("#FFFFFF"));
-            tvActiveModeDetails.setText("Nome no AirPlay: DAC-HiFi-Audio");
-            tvActiveModeDetails.setTextColor(Color.parseColor("#1DB954"));
-            tvFormatDetails.setText("Taxa: ALAC Lossless 44.1kHz • Decodificador Nativo C++");
-        } else {
-            btnModeBluetooth.setBackgroundResource(R.drawable.bg_pill_active);
-            btnModeBluetooth.setTextColor(Color.parseColor("#000000"));
-
-            tvActiveModeTitle.setText("Bluetooth Audio (A2DP Receiver)");
-            tvActiveModeTitle.setTextColor(Color.parseColor("#FFFFFF"));
-            tvActiveModeDetails.setText("Nome Bluetooth: DAC-HiFi-Audio");
-            tvActiveModeDetails.setTextColor(Color.parseColor("#1DB954"));
-            tvFormatDetails.setText("Recepção de áudio sem fio para smartphones e tablets");
-            btnMakeDiscoverable.setVisibility(View.VISIBLE);
-            if (bluetoothSinkManager != null) {
-                bluetoothSinkManager.makeDiscoverable();
+        if (tab == TAB_WIFI) {
+            layoutTabWifi.setVisibility(View.VISIBLE);
+            tvNavWifi.setTextColor(Color.parseColor("#1ED760"));
+            tvNavWifi.setTypeface(null, Typeface.BOLD);
+            if (wifiAudioServer != null) {
+                tvWifiIpAddress.setText("IP: http://" + wifiAudioServer.getIpAddress() + ":8080");
             }
+        } else if (tab == TAB_AIRPLAY) {
+            layoutTabAirplay.setVisibility(View.VISIBLE);
+            tvNavAirplay.setTextColor(Color.parseColor("#1ED760"));
+            tvNavAirplay.setTypeface(null, Typeface.BOLD);
+        } else if (tab == TAB_BLUETOOTH) {
+            layoutTabBluetooth.setVisibility(View.VISIBLE);
+            tvNavBluetooth.setTextColor(Color.parseColor("#1ED760"));
+            tvNavBluetooth.setTypeface(null, Typeface.BOLD);
+        } else if (tab == TAB_SETTINGS) {
+            layoutTabSettings.setVisibility(View.VISIBLE);
+            tvNavSettings.setTextColor(Color.parseColor("#1ED760"));
+            tvNavSettings.setTypeface(null, Typeface.BOLD);
         }
-        refreshDevicesList();
+
+        refreshAllDeviceLists();
+    }
+
+    private void performSystemCleanup() {
+        Toast.makeText(this, "Iniciando limpeza e liberação de portas...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            try {
+                if (wifiAudioServer != null) {
+                    wifiAudioServer.disconnectActiveStream();
+                    wifiAudioServer.stop();
+                }
+                if (airPlayServer != null) {
+                    airPlayServer.disconnect();
+                    airPlayServer.stop();
+                }
+
+                Thread.sleep(500);
+
+                // Reiniciar servidores limpos
+                wifiAudioServer = WifiAudioServer.getInstance(this);
+                wifiAudioServer.start();
+
+                airPlayServer = new AirPlayServer(this, (isStreaming, clientIp, deviceName) -> {
+                    runOnUiThread(this::refreshAllDeviceLists);
+                });
+                airPlayServer.start();
+
+                System.gc();
+
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "✨ Limpeza concluída! Portas 5000, 7000 e 8080 liberadas com sucesso!", Toast.LENGTH_LONG).show();
+                    refreshAllDeviceLists();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Erro na limpeza: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     private void setupVolumeControls() {
@@ -190,12 +266,12 @@ public class MainActivity extends Activity {
         bluetoothSinkManager = new BluetoothSinkManager(this, new BluetoothSinkManager.SinkStatusListener() {
             @Override
             public void onStatusChanged(String status, String connectedDevice) {
-                runOnUiThread(() -> refreshDevicesList());
+                runOnUiThread(() -> refreshAllDeviceLists());
             }
 
             @Override
             public void onDevicesUpdated() {
-                runOnUiThread(() -> refreshDevicesList());
+                runOnUiThread(() -> refreshAllDeviceLists());
             }
         });
         bluetoothSinkManager.init();
@@ -205,7 +281,7 @@ public class MainActivity extends Activity {
 
         try {
             airPlayServer = new AirPlayServer(this, (isStreaming, clientIp, deviceName) -> {
-                runOnUiThread(() -> refreshDevicesList());
+                runOnUiThread(this::refreshAllDeviceLists);
             });
             airPlayServer.start();
         } catch (Exception e) {
@@ -213,15 +289,11 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void refreshDevicesList() {
-        layoutDevicesList.removeAllViews();
-        boolean hasDevice = false;
-
-        // 1. Verificar Dispositivo Wi-Fi conectado (PC)
+    private void refreshAllDeviceLists() {
+        // 1. Atualizar Dispositivos Wi-Fi (PC)
+        layoutWifiDevicesList.removeAllViews();
         if (wifiAudioServer != null && wifiAudioServer.isStreaming()) {
-            hasDevice = true;
             String clientIp = wifiAudioServer.getConnectedClientIp();
-
             LinearLayout row = createDeviceRow(
                     "💻 Computador Transmissor (PC)",
                     "IP: " + clientIp + " • Lossless PCM (1411 kbps)",
@@ -229,18 +301,24 @@ public class MainActivity extends Activity {
                     v -> {
                         wifiAudioServer.disconnectActiveStream();
                         Toast.makeText(this, "Transmissão Wi-Fi interrompida!", Toast.LENGTH_SHORT).show();
-                        refreshDevicesList();
+                        refreshAllDeviceLists();
                     }
             );
-            layoutDevicesList.addView(row);
+            layoutWifiDevicesList.addView(row);
+        } else {
+            TextView emptyTv = new TextView(this);
+            emptyTv.setText("Aguardando transmissão do computador via Wi-Fi...");
+            emptyTv.setTextColor(Color.parseColor("#727272"));
+            emptyTv.setTextSize(12);
+            emptyTv.setPadding(0, 8, 0, 8);
+            layoutWifiDevicesList.addView(emptyTv);
         }
 
-        // 2. Verificar Dispositivo Apple AirPlay conectado (iPhone / iPad)
+        // 2. Atualizar Dispositivos AirPlay (Apple)
+        layoutAirplayDevicesList.removeAllViews();
         if (airPlayServer != null && airPlayServer.isStreaming()) {
-            hasDevice = true;
             String clientIp = airPlayServer.getConnectedClientIp();
             String devName = airPlayServer.getConnectedDeviceName();
-
             LinearLayout row = createDeviceRow(
                     "🍏 " + devName,
                     "IP: " + clientIp + " • Apple AirPlay Lossless ALAC",
@@ -248,20 +326,28 @@ public class MainActivity extends Activity {
                     v -> {
                         airPlayServer.disconnect();
                         Toast.makeText(this, "AirPlay desconectado!", Toast.LENGTH_SHORT).show();
-                        refreshDevicesList();
+                        refreshAllDeviceLists();
                     }
             );
-            layoutDevicesList.addView(row);
+            layoutAirplayDevicesList.addView(row);
+        } else {
+            TextView emptyTv = new TextView(this);
+            emptyTv.setText("Nenhum iPhone transmitindo no momento. Abra a Central de Controle para conectar.");
+            emptyTv.setTextColor(Color.parseColor("#727272"));
+            emptyTv.setTextSize(12);
+            emptyTv.setPadding(0, 8, 0, 8);
+            layoutAirplayDevicesList.addView(emptyTv);
         }
 
-        // 3. Verificar Dispositivos Bluetooth Pareados/Conectados
+        // 3. Atualizar Dispositivos Bluetooth
+        layoutBluetoothDevicesList.removeAllViews();
+        boolean hasBt = false;
         if (bluetoothSinkManager != null) {
             List<BluetoothDevice> bondedList = bluetoothSinkManager.getBondedDevices();
             for (BluetoothDevice dev : bondedList) {
-                hasDevice = true;
+                hasBt = true;
                 String name = dev.getName() != null ? dev.getName() : "Dispositivo Bluetooth";
                 String address = dev.getAddress();
-
                 LinearLayout row = createDeviceRow(
                         "📱 " + name,
                         "MAC: " + address + " • Bluetooth Pareado",
@@ -269,23 +355,19 @@ public class MainActivity extends Activity {
                         v -> {
                             bluetoothSinkManager.unpairDevice(dev);
                             Toast.makeText(this, "Dispositivo " + name + " desconectado!", Toast.LENGTH_SHORT).show();
-                            refreshDevicesList();
+                            refreshAllDeviceLists();
                         }
                 );
-                layoutDevicesList.addView(row);
+                layoutBluetoothDevicesList.addView(row);
             }
         }
-
-        if (!hasDevice) {
+        if (!hasBt) {
             TextView emptyTv = new TextView(this);
-            String emptyMsg = (currentMode == MODE_WIFI) ? "Aguardando transmissão do Computador via Wi-Fi..." :
-                    (currentMode == MODE_AIRPLAY) ? "Aguardando conexão do iPhone via AirPlay (Central de Controle)..." :
-                            "Nenhum celular conectado via Bluetooth. Toque no botão abaixo para parear.";
-            emptyTv.setText(emptyMsg);
+            emptyTv.setText("Nenhum dispositivo Bluetooth pareado no momento.");
             emptyTv.setTextColor(Color.parseColor("#727272"));
             emptyTv.setTextSize(12);
             emptyTv.setPadding(0, 8, 0, 8);
-            layoutDevicesList.addView(emptyTv);
+            layoutBluetoothDevicesList.addView(emptyTv);
         }
 
         // Atualizar Badge superior
@@ -293,10 +375,10 @@ public class MainActivity extends Activity {
             boolean active = (wifiAudioServer != null && wifiAudioServer.isStreaming()) || (airPlayServer != null && airPlayServer.isStreaming());
             if (active) {
                 tvOnlineBadge.setText("🟢 TOCANDO");
-                tvOnlineBadge.setTextColor(Color.parseColor("#1DB954"));
+                tvOnlineBadge.setTextColor(Color.parseColor("#1ED760"));
             } else {
                 tvOnlineBadge.setText("🟢 PRONTO");
-                tvOnlineBadge.setTextColor(Color.parseColor("#1DB954"));
+                tvOnlineBadge.setTextColor(Color.parseColor("#1ED760"));
             }
         }
     }
@@ -328,7 +410,7 @@ public class MainActivity extends Activity {
 
         TextView tvSub = new TextView(this);
         tvSub.setText(subtitle);
-        tvSub.setTextColor(Color.parseColor("#1DB954"));
+        tvSub.setTextColor(Color.parseColor("#1ED760"));
         tvSub.setTextSize(11);
 
         textLayout.addView(tvTitle);
@@ -374,8 +456,8 @@ public class MainActivity extends Activity {
         if (wifiAudioServer != null) {
             int volumePercent = wifiAudioServer.getCurrentAudioLevel();
             if (volumePercent > 100) volumePercent = 100;
-            pbVuMeter.setProgress(volumePercent);
-            tvVuVal.setText(volumePercent + " %");
+            if (pbVuMeterWifi != null) pbVuMeterWifi.setProgress(volumePercent);
+            if (tvVuValWifi != null) tvVuValWifi.setText(volumePercent + " %");
         }
     }
 
