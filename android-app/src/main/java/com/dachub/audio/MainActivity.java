@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
 
     private int currentMode = MODE_WIFI;
 
+    private TextView tvOnlineBadge;
     private Button btnModeWifi;
     private Button btnModeAirPlay;
     private Button btnModeBluetooth;
@@ -70,6 +71,7 @@ public class MainActivity extends Activity {
     }
 
     private void initViews() {
+        tvOnlineBadge = findViewById(R.id.tvOnlineBadge);
         btnModeWifi = findViewById(R.id.btnModeWifi);
         btnModeAirPlay = findViewById(R.id.btnModeAirPlay);
         btnModeBluetooth = findViewById(R.id.btnModeBluetooth);
@@ -107,18 +109,18 @@ public class MainActivity extends Activity {
     private void setMode(int mode) {
         currentMode = mode;
 
-        // Resetar cores das pílulas
-        btnModeWifi.setBackgroundColor(Color.parseColor("#282828"));
+        // Resetar pílulas para o estilo inativo
+        btnModeWifi.setBackgroundResource(R.drawable.bg_pill_inactive);
         btnModeWifi.setTextColor(Color.parseColor("#FFFFFF"));
-        btnModeAirPlay.setBackgroundColor(Color.parseColor("#282828"));
+        btnModeAirPlay.setBackgroundResource(R.drawable.bg_pill_inactive);
         btnModeAirPlay.setTextColor(Color.parseColor("#FFFFFF"));
-        btnModeBluetooth.setBackgroundColor(Color.parseColor("#282828"));
+        btnModeBluetooth.setBackgroundResource(R.drawable.bg_pill_inactive);
         btnModeBluetooth.setTextColor(Color.parseColor("#FFFFFF"));
 
         btnMakeDiscoverable.setVisibility(View.GONE);
 
         if (mode == MODE_WIFI) {
-            btnModeWifi.setBackgroundColor(Color.parseColor("#1DB954"));
+            btnModeWifi.setBackgroundResource(R.drawable.bg_pill_active);
             btnModeWifi.setTextColor(Color.parseColor("#000000"));
 
             tvActiveModeTitle.setText("Transmissão Wi-Fi (PC / Lossless)");
@@ -126,18 +128,18 @@ public class MainActivity extends Activity {
             String ip = (wifiAudioServer != null) ? wifiAudioServer.getIpAddress() : "192.168.15.12";
             tvActiveModeDetails.setText("IP do Receptor: http://" + ip + ":8080");
             tvActiveModeDetails.setTextColor(Color.parseColor("#1DB954"));
-            tvFormatDetails.setText("Qualidade: PCM 16-bit 44.1kHz Estéreo • Lossless Direct (1411 kbps)");
+            tvFormatDetails.setText("Taxa: PCM 16-bit 44.1kHz Estéreo • Lossless Direct (1411 kbps)");
         } else if (mode == MODE_AIRPLAY) {
-            btnModeAirPlay.setBackgroundColor(Color.parseColor("#1DB954"));
+            btnModeAirPlay.setBackgroundResource(R.drawable.bg_pill_active);
             btnModeAirPlay.setTextColor(Color.parseColor("#000000"));
 
             tvActiveModeTitle.setText("Apple AirPlay 2 (iPhone / iPad / Mac)");
             tvActiveModeTitle.setTextColor(Color.parseColor("#FFFFFF"));
             tvActiveModeDetails.setText("Nome no AirPlay: DAC-HiFi-Audio");
             tvActiveModeDetails.setTextColor(Color.parseColor("#1DB954"));
-            tvFormatDetails.setText("Qualidade: ALAC Lossless 44.1kHz • Decodificador Nativo C++");
+            tvFormatDetails.setText("Taxa: ALAC Lossless 44.1kHz • Decodificador Nativo C++");
         } else {
-            btnModeBluetooth.setBackgroundColor(Color.parseColor("#1DB954"));
+            btnModeBluetooth.setBackgroundResource(R.drawable.bg_pill_active);
             btnModeBluetooth.setTextColor(Color.parseColor("#000000"));
 
             tvActiveModeTitle.setText("Bluetooth Audio (A2DP Receiver)");
@@ -285,20 +287,32 @@ public class MainActivity extends Activity {
             emptyTv.setPadding(0, 8, 0, 8);
             layoutDevicesList.addView(emptyTv);
         }
+
+        // Atualizar Badge superior
+        if (tvOnlineBadge != null) {
+            boolean active = (wifiAudioServer != null && wifiAudioServer.isStreaming()) || (airPlayServer != null && airPlayServer.isStreaming());
+            if (active) {
+                tvOnlineBadge.setText("🟢 TOCANDO");
+                tvOnlineBadge.setTextColor(Color.parseColor("#1DB954"));
+            } else {
+                tvOnlineBadge.setText("🟢 PRONTO");
+                tvOnlineBadge.setTextColor(Color.parseColor("#1DB954"));
+            }
+        }
     }
 
     private LinearLayout createDeviceRow(String title, String subtitle, String buttonText, View.OnClickListener onStop) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(12, 10, 12, 10);
-        row.setBackgroundColor(Color.parseColor("#242424"));
+        row.setPadding(16, 12, 16, 12);
+        row.setBackgroundResource(R.drawable.bg_device_tile);
 
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        rowParams.setMargins(0, 0, 0, 8);
+        rowParams.setMargins(0, 0, 0, 10);
         row.setLayoutParams(rowParams);
 
         LinearLayout textLayout = new LinearLayout(this);
@@ -322,14 +336,14 @@ public class MainActivity extends Activity {
 
         Button btnStop = new Button(this);
         btnStop.setText(buttonText);
-        btnStop.setTextColor(Color.parseColor("#FFFFFF"));
-        btnStop.setBackgroundColor(Color.parseColor("#E50914"));
+        btnStop.setTextColor(Color.parseColor("#FF4D4D"));
+        btnStop.setBackgroundResource(R.drawable.bg_button_stop);
         btnStop.setTextSize(11);
         btnStop.setTypeface(null, Typeface.BOLD);
-        btnStop.setPadding(16, 4, 16, 4);
+        btnStop.setPadding(20, 6, 20, 6);
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                dpToPx(34)
+                dpToPx(36)
         );
         btnStop.setLayoutParams(btnParams);
         btnStop.setOnClickListener(onStop);
