@@ -1,7 +1,7 @@
 package com.dachub.audio;
 
-import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
@@ -20,6 +20,7 @@ import java.util.Set;
 
 public class BluetoothSinkManager {
     private static final String TAG = "BluetoothSinkManager";
+    private static final String ACTION_PAIRING_REQUEST = "android.bluetooth.device.action.PAIRING_REQUEST";
 
     public interface SinkStatusListener {
         void onStatusChanged(String status, String connectedDevice);
@@ -59,6 +60,7 @@ public class BluetoothSinkManager {
                         AudioTrack.MODE_STREAM
                 );
                 audioTrack.play();
+                Log.i(TAG, "AudioTrack Bluetooth Lazy inicializado em 44.1kHz Stereo.");
             } catch (Exception e) {
                 Log.e(TAG, "Erro ao inicializar AudioTrack Bluetooth", e);
             }
@@ -73,6 +75,7 @@ public class BluetoothSinkManager {
                 audioTrack.release();
             } catch (Exception ignored) {}
             audioTrack = null;
+            Log.i(TAG, "AudioTrack Bluetooth liberado.");
         }
     }
 
@@ -126,10 +129,18 @@ public class BluetoothSinkManager {
     public void makeDiscoverable() {
         if (bluetoothAdapter == null) return;
         try {
+            if (!bluetoothAdapter.isEnabled()) {
+                bluetoothAdapter.enable();
+            }
+            bluetoothAdapter.setName("DAC-HiFi-Audio");
             Method setScanMode = BluetoothAdapter.class.getMethod("setScanMode", int.class, int.class);
             setScanMode.invoke(bluetoothAdapter, BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, 300);
-            Log.i(TAG, "Dispositivo configurado como visível por 300 segundos.");
+            Log.i(TAG, "Dispositivo configurado como visível por 300 segundos com nome DAC-HiFi-Audio.");
+            if (listener != null) {
+                listener.onStatusChanged("Visível (300s)", null);
+            }
         } catch (Exception e) {
+            Log.w(TAG, "Falha ao definir ScanMode via reflexão, enviando Intent", e);
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
             discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
             discoverableIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -165,6 +176,7 @@ public class BluetoothSinkManager {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+        filter.addAction(ACTION_PAIRING_REQUEST);
         filter.addAction("android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED");
         filter.addAction("android.bluetooth.a2dp-sink.profile.action.PLAYING_STATE_CHANGED");
 
@@ -178,7 +190,24 @@ public class BluetoothSinkManager {
             String action = intent.getAction();
             if (action == null) return;
 
-            if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+            if (ACTION_PAIRING_REQUEST.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device != null) {
+                    Log.i(TAG, "Solicitação de pareamento automático aceita para: " + device.getName() + " (" + device.getAddress() + ")");
+                    try {
+                        Method setPairingConfirmation = device.getClass().getMethod("setPairingConfirmation", boolean.class);
+                        setPairingConfirmation.invoke(device, true);
+                    } catch (Exception ignored) {}
+                }
+            } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+                int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE);
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                String devName = device != null ? device.getName() : "Dispositivo";
+                Log.i(TAG, "Estado de pareamento alterado: " + bondState + " para " + devName);
+
+                if (bondState == BluetoothDevice.BOND_BONDED) {
+                    if (listener != null) listener.onStatusChanged("Pareado com sucesso", devName);
+                }
                 if (listener != null) listener.onDevicesUpdated();
             } else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
                 int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
