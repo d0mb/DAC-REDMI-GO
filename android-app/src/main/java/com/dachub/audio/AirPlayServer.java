@@ -15,7 +15,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -119,15 +118,17 @@ public class AirPlayServer {
             raopService.setAttribute("txtvers", "1");
             raopService.setAttribute("ch", "2");
             raopService.setAttribute("cn", "0,1");
-            raopService.setAttribute("et", "0,1");
+            raopService.setAttribute("et", "0"); // 0 = Sem criptografia (Áudio direto compatível com todos os iOS)
             raopService.setAttribute("sv", "false");
             raopService.setAttribute("da", "true");
             raopService.setAttribute("sr", "44100");
             raopService.setAttribute("ss", "16");
             raopService.setAttribute("pw", "false");
-            raopService.setAttribute("vn", "3");
+            raopService.setAttribute("vn", "65537");
             raopService.setAttribute("tp", "UDP");
             raopService.setAttribute("md", "0,1,2");
+            raopService.setAttribute("am", "AirPort4,107");
+            raopService.setAttribute("sf", "0x4");
         }
 
         raopRegistrationListener = new NsdManager.RegistrationListener() {
@@ -222,7 +223,6 @@ public class AirPlayServer {
                         }
                     }
 
-                    // Ler corpo se houver
                     if (contentLength > 0) {
                         char[] body = new char[contentLength];
                         int read = 0;
@@ -233,7 +233,8 @@ public class AirPlayServer {
                         }
                     }
 
-                    // Responder aos métodos RTSP do iPhone
+                    Log.d(TAG, "RTSP Método recebido do iPhone: " + method);
+
                     StringBuilder resp = new StringBuilder();
                     resp.append("RTSP/1.0 200 OK\r\n");
                     resp.append("CSeq: ").append(cseq).append("\r\n");
@@ -275,13 +276,14 @@ public class AirPlayServer {
         new Thread(() -> {
             try {
                 audioSocket = new DatagramSocket(AUDIO_PORT);
-                byte[] buffer = new byte[2048];
+                byte[] buffer = new byte[4096];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
                 while (isRunning) {
                     audioSocket.receive(packet);
                     int len = packet.getLength();
-                    if (len > 12) { // Pular cabeçalho RTP de 12 bytes
+                    if (len > 12) {
+                        // Escreve os frames de áudio PCM diretamente no AudioTrack
                         if (audioTrack != null) {
                             audioTrack.write(packet.getData(), 12, len - 12);
                         }
