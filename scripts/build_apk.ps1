@@ -39,13 +39,23 @@ Write-Host "4/6 - Convertendo bytecode para DEX (D8)..."
 $classFiles = Get-ChildItem -Path (Join-Path $outDir "classes") -Recurse -Filter "*.class" | ForEach-Object { $_.FullName }
 & $java -cp $d8Jar com.android.tools.r8.D8 --release --output $outDir --lib $androidJar $classFiles
 
-Write-Host "5/6 - Adicionando classes.dex ao APK..."
+Write-Host "5/6 - Adicionando classes.dex e bibliotecas C++ (jniLibs) ao APK..."
 $classesDex = Join-Path $outDir "classes.dex"
 if (-not (Test-Path $classesDex)) {
     throw "classes.dex não foi gerado!"
 }
+
+# Copiar jniLibs para outDir/lib
+$jniLibsDir = Join-Path $appDir "src\main\jniLibs"
+if (Test-Path $jniLibsDir) {
+    Copy-Item -Path $jniLibsDir -Destination (Join-Path $outDir "lib") -Recurse -Force
+}
+
 Push-Location $outDir
 & $jar -uf $unalignedApk classes.dex
+if (Test-Path (Join-Path $outDir "lib")) {
+    & $jar -uf $unalignedApk lib
+}
 Pop-Location
 
 Write-Host "6/6 - Alinhando e assinando APK final..."

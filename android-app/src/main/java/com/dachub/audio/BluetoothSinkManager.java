@@ -230,4 +230,8 @@ public class BluetoothSinkManager {
             }
         }, filter);
     }
+
+    public void release() {
+        // Recursos liberados
+    }
 }
