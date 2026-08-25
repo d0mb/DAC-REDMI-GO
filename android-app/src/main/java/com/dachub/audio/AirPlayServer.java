@@ -111,12 +111,12 @@ public class AirPlayServer implements RaopCallbackHandler {
                 wifiLock.acquire();
             }
 
-            int sampleRate = 48000;
+            // Configurar taxa nativa de 44.1kHz bit-perfect (taxa padrão do ALAC / Spotify Lossless)
+            // e período Qualcomm de 192 frames para evitar resampling e eliminação de clock drift
+            int sampleRate = 44100;
             int framesPerBurst = 192;
             if (audioManager != null) {
                 try {
-                    String sr = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
-                    if (sr != null) sampleRate = Integer.parseInt(sr);
                     String fpb = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
                     if (fpb != null) framesPerBurst = Integer.parseInt(fpb);
                 } catch (Exception ignored) {}
@@ -126,7 +126,7 @@ public class AirPlayServer implements RaopCallbackHandler {
             }
             NativeBridge.nativeSetDefaultStreamValues(sampleRate, framesPerBurst);
 
-            Log.i(TAG, "Iniciando receptor nativo C++ AirPlay 2 (libairplay_native.so)...");
+            Log.i(TAG, "Iniciando receptor nativo C++ AirPlay 2 em 44.1kHz Bit-Perfect...");
             serverHandle = NativeBridge.nativeInit(
                     this,
                     macBytes,
@@ -141,18 +141,18 @@ public class AirPlayServer implements RaopCallbackHandler {
                 return;
             }
 
-            // Configuração Anti-Jitter Hi-Fi (cushionMs = 50ms para eliminar micro-stutter de Wi-Fi)
+            // Configuração Otimizada de Sincronismo e Sem Clock Drift
             boolean audioConfigured = NativeBridge.nativeServerAudioConfigure(
                     serverHandle,
-                    50,     // cushionMs: 50ms (anti-jitter buffer)
+                    15,     // cushionMs: 15ms (sincronismo perfeito sem acúmulo de drift)
                     95,     // percentilePct: 95
-                    384,    // oboeBufferFrames: 384 (2x Qualcomm 192 burst)
+                    0,      // oboeBufferFrames: 0 (default burst do hardware)
                     true,   // forceSwAlac: true (FFmpeg ALAC software decoder)
-                    true,   // realtimePriority: true (alta prioridade de áudio)
-                    true,   // lowLatency: true
+                    true,   // realtimePriority: true (prioridade de áudio em tempo real)
+                    true,   // lowLatency: true (modo de baixa latência)
                     false   // benchmarkLog: false
             );
-            Log.i(TAG, "Motor de Áudio Nativo C++ configurado (50ms cushion / 384 frames): " + audioConfigured);
+            Log.i(TAG, "Motor de Áudio Nativo C++ configurado em 44.1kHz Bit-Perfect: " + audioConfigured);
 
             // Ativação explícita de Codecs ALAC e AAC
             NativeBridge.nativeSetH265Enabled(serverHandle, true);
@@ -162,8 +162,7 @@ public class AirPlayServer implements RaopCallbackHandler {
             NativeBridge.nativeSetAudioEnabled(serverHandle, true);
             NativeBridge.nativeSetPlist(serverHandle, "maxFPS", 60);
             NativeBridge.nativeSetPlist(serverHandle, "overscanned", 0);
-            // 200.000 micros (200ms) de lead time para buffer anti-lag no iPhone
-            NativeBridge.nativeSetPlist(serverHandle, "audio_delay_micros", 200000);
+            NativeBridge.nativeSetPlist(serverHandle, "audio_delay_micros", 0);
             NativeBridge.nativeSetDisplaySize(serverHandle, 720, 1280, 60);
 
             boundPort = NativeBridge.nativeStart(serverHandle, DEFAULT_PORT);
