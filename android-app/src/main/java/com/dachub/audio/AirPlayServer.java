@@ -24,6 +24,7 @@ import java.util.Map;
 public class AirPlayServer {
     private static final String TAG = "AirPlayServer";
     private static final int RTSP_PORT = 5000;
+    private static final int AIRPLAY_PORT = 7000;
     private static final int AUDIO_PORT = 6000;
     private static final int CONTROL_PORT = 6001;
     private static final int TIMING_PORT = 6002;
@@ -36,8 +37,10 @@ public class AirPlayServer {
     private final AirPlayStatusListener listener;
     private NsdManager nsdManager;
     private NsdManager.RegistrationListener raopRegistrationListener;
+    private NsdManager.RegistrationListener airplayRegistrationListener;
     
     private ServerSocket rtspServer;
+    private ServerSocket airplayHttpServer;
     private DatagramSocket audioSocket;
     private AudioTrack audioTrack;
     private boolean isRunning = false;
@@ -117,17 +120,19 @@ public class AirPlayServer {
         isRunning = true;
 
         startRtspServer();
+        startAirPlayHttpServer();
         startUdpAudioReceiver();
-        registerRaopService();
-        Log.i(TAG, "Receptor Pure AirPlay Audio (RAOP) iniciado para iPhone/Spotify!");
+        registerNsdServices();
+        Log.i(TAG, "Receptor AirPlay 2 dual-service iniciado para iPhone/Spotify!");
     }
 
     public synchronized void stop() {
         isRunning = false;
         isStreaming = false;
-        unregisterRaopService();
+        unregisterNsdServices();
         try {
             if (rtspServer != null) rtspServer.close();
+            if (airplayHttpServer != null) airplayHttpServer.close();
             if (audioSocket != null) audioSocket.close();
             if (audioTrack != null) {
                 audioTrack.stop();
@@ -136,11 +141,11 @@ public class AirPlayServer {
         } catch (Exception ignored) {}
     }
 
-    private void registerRaopService() {
+    private void registerNsdServices() {
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
         if (nsdManager == null) return;
 
-        // Anúncio RAOP (Pure AirPlay Audio Speaker) -> Formato: MAC@Nome
+        // 1. Serviço RAOP (Áudio AirPlay) -> Formato: MAC@Nome
         NsdServiceInfo raopService = new NsdServiceInfo();
         raopService.setServiceName(macAddress + "@DAC-HiFi-Audio");
         raopService.setServiceType("_raop._tcp");
@@ -164,12 +169,8 @@ public class AirPlayServer {
         }
 
         raopRegistrationListener = new NsdManager.RegistrationListener() {
-            @Override public void onServiceRegistered(NsdServiceInfo info) {
-                Log.i(TAG, "RAOP registrado com sucesso: " + info.getServiceName());
-            }
-            @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) {
-                Log.w(TAG, "Falha registrando RAOP: " + errorCode);
-            }
+            @Override public void onServiceRegistered(NsdServiceInfo info) { Log.i(TAG, "RAOP registrado: " + info.getServiceName()); }
+            @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) { Log.w(TAG, "Falha RAOP: " + errorCode); }
             @Override public void onServiceUnregistered(NsdServiceInfo info) {}
             @Override public void onUnregistrationFailed(NsdServiceInfo info, int errorCode) {}
         };
@@ -177,16 +178,109 @@ public class AirPlayServer {
         try {
             nsdManager.registerService(raopService, NsdManager.PROTOCOL_DNS_SD, raopRegistrationListener);
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao registrar RAOP mDNS", e);
+            Log.e(TAG, "Erro registrando RAOP mDNS", e);
+        }
+
+        // 2. Serviço AirPlay Principal (Descoberta no iOS)
+        NsdServiceInfo airplayService = new NsdServiceInfo();
+        airplayService.setServiceName("DAC-HiFi-Audio");
+        airplayService.setServiceType("_airplay._tcp");
+        airplayService.setPort(AIRPLAY_PORT);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            airplayService.setAttribute("features", "0x5A7FFFF7,0x1E");
+            airplayService.setAttribute("flags", "0x4");
+            airplayService.setAttribute("model", "AppleTV3,2");
+            airplayService.setAttribute("srcvers", "220.68");
+            airplayService.setAttribute("deviceid", macAddress);
+        }
+
+        airplayRegistrationListener = new NsdManager.RegistrationListener() {
+            @Override public void onServiceRegistered(NsdServiceInfo info) { Log.i(TAG, "AirPlay registrado: " + info.getServiceName()); }
+            @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) { Log.w(TAG, "Falha AirPlay: " + errorCode); }
+            @Override public void onServiceUnregistered(NsdServiceInfo info) {}
+            @Override public void onUnregistrationFailed(NsdServiceInfo info, int errorCode) {}
+        };
+
+        try {
+            nsdManager.registerService(airplayService, NsdManager.PROTOCOL_DNS_SD, airplayRegistrationListener);
+        } catch (Exception e) {
+            Log.e(TAG, "Erro registrando AirPlay mDNS", e);
         }
     }
 
-    private void unregisterRaopService() {
-        if (nsdManager != null && raopRegistrationListener != null) {
+    private void unregisterNsdServices() {
+        if (nsdManager != null) {
             try {
-                nsdManager.unregisterService(raopRegistrationListener);
+                if (raopRegistrationListener != null) nsdManager.unregisterService(raopRegistrationListener);
+                if (airplayRegistrationListener != null) nsdManager.unregisterService(airplayRegistrationListener);
             } catch (Exception ignored) {}
         }
+    }
+
+    private void startAirPlayHttpServer() {
+        new Thread(() -> {
+            try {
+                airplayHttpServer = new ServerSocket(AIRPLAY_PORT);
+                while (isRunning) {
+                    Socket client = airplayHttpServer.accept();
+                    handleHttpClient(client);
+                }
+            } catch (Exception e) {
+                if (isRunning) Log.e(TAG, "Erro no servidor HTTP AirPlay", e);
+            }
+        }).start();
+    }
+
+    private void handleHttpClient(Socket client) {
+        new Thread(() -> {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+                 OutputStream out = client.getOutputStream()) {
+
+                String line = in.readLine();
+                if (line == null) return;
+                String[] parts = line.split(" ");
+                String method = parts[0];
+                String path = parts.length > 1 ? parts[1] : "/";
+
+                while ((line = in.readLine()) != null && !line.isEmpty()) {}
+
+                Log.d(TAG, "HTTP AirPlay Porta 7000: " + method + " " + path);
+
+                if ("/info".equalsIgnoreCase(path) || "/server-info".equalsIgnoreCase(path)) {
+                    String xmlInfo = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n" +
+                            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\r\n" +
+                            "<plist version=\"1.0\">\r\n<dict>\r\n" +
+                            "<key>deviceid</key><string>" + macAddress + "</string>\r\n" +
+                            "<key>features</key><integer>14847</integer>\r\n" +
+                            "<key>model</key><string>AppleTV3,2</string>\r\n" +
+                            "<key>protovers</key><string>1.0</string>\r\n" +
+                            "<key>srcvers</key><string>220.68</string>\r\n" +
+                            "<key>statusFlags</key><integer>4</integer>\r\n" +
+                            "</dict>\r\n</plist>\r\n";
+                    byte[] data = xmlInfo.getBytes(StandardCharsets.UTF_8);
+
+                    String resp = "HTTP/1.1 200 OK\r\n" +
+                            "Content-Type: text/x-apple-plist+xml\r\n" +
+                            "Content-Length: " + data.length + "\r\n" +
+                            "Server: AirTunes/220.68\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                    out.write(data);
+                } else if ("/pair-setup".equalsIgnoreCase(path) || "/pair-verify".equalsIgnoreCase(path)) {
+                    byte[] dummyKey = new byte[32];
+                    String resp = "HTTP/1.1 200 OK\r\n" +
+                            "Content-Type: application/octet-stream\r\n" +
+                            "Content-Length: " + dummyKey.length + "\r\n" +
+                            "Server: AirTunes/220.68\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                    out.write(dummyKey);
+                } else {
+                    String resp = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                }
+                out.flush();
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void startRtspServer() {
@@ -250,7 +344,7 @@ public class AirPlayServer {
                     StringBuilder resp = new StringBuilder();
                     resp.append("RTSP/1.0 200 OK\r\n");
                     resp.append("CSeq: ").append(cseq).append("\r\n");
-                    resp.append("Server: AirTunes/101.28\r\n");
+                    resp.append("Server: AirTunes/220.68\r\n");
 
                     if ("OPTIONS".equalsIgnoreCase(method)) {
                         resp.append("Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, SET_PARAMETER, GET_PARAMETER\r\n\r\n");
