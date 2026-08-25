@@ -126,13 +126,23 @@ public class AirPlayServer implements RaopCallbackHandler {
                 return;
             }
 
+            // ATIVAÇÃO DOS CODECS NATIVOS (ALAC & AAC)
+            NativeBridge.nativeSetH265Enabled(serverHandle, true);
+            NativeBridge.nativeSetCodecs(serverHandle, true, true);
+            NativeBridge.nativeSetHlsEnabled(serverHandle, true);
+            NativeBridge.nativeSetLang(serverHandle, "pt-BR", "BR", "pt");
             NativeBridge.nativeSetAudioEnabled(serverHandle, true);
+            NativeBridge.nativeSetPlist(serverHandle, "maxFPS", 60);
+            NativeBridge.nativeSetPlist(serverHandle, "overscanned", 0);
+            NativeBridge.nativeSetPlist(serverHandle, "audio_delay_micros", 0);
+            NativeBridge.nativeSetDisplaySize(serverHandle, 720, 1280, 60);
+
             boundPort = NativeBridge.nativeStart(serverHandle, DEFAULT_PORT);
             if (boundPort <= 0) boundPort = DEFAULT_PORT;
 
             isRunning = true;
             registerMdnsServices();
-            Log.i(TAG, "Motor nativo AirPlay 2 C++ pronto na porta: " + boundPort);
+            Log.i(TAG, "Motor nativo AirPlay 2 C++ pronto com ALAC/AAC ativos na porta: " + boundPort);
         } catch (Throwable t) {
             Log.e(TAG, "Exceção iniciando motor nativo AirPlay 2: " + t.getMessage(), t);
         }
@@ -260,8 +270,8 @@ public class AirPlayServer implements RaopCallbackHandler {
     }
 
     @Override
-    public void onAudioFormat(int sampleRate, int channels, boolean isFloat) {
-        Log.i(TAG, "Áudio AirPlay ALAC puro recebido: " + sampleRate + " Hz, " + channels + " canais");
+    public void onAudioFormat(int channels, int samplesPerFrame, boolean isFloat) {
+        Log.i(TAG, "Áudio AirPlay ALAC ativo: " + channels + " canais, spf=" + samplesPerFrame);
         isStreaming = true;
         connectedClientIp = "Apple iPhone";
         if (listener != null) {
@@ -277,7 +287,7 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public float onClientVolume() {
-        return 0.0f; // 0.0 dB = Volume máximo padrão AirPlay
+        return 0.0f; // 0.0 dB = Volume máximo
     }
 
     @Override
