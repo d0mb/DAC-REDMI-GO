@@ -29,7 +29,12 @@ public class AirPlayServer {
     private static final int CONTROL_PORT = 6001;
     private static final int TIMING_PORT = 6002;
 
+    public interface AirPlayStatusListener {
+        void onStatusChanged(boolean isStreaming, String clientIp, String deviceName);
+    }
+
     private final Context context;
+    private final AirPlayStatusListener listener;
     private NsdManager nsdManager;
     private NsdManager.RegistrationListener raopRegistrationListener;
     private NsdManager.RegistrationListener airplayRegistrationListener;
@@ -39,11 +44,36 @@ public class AirPlayServer {
     private DatagramSocket audioSocket;
     private AudioTrack audioTrack;
     private boolean isRunning = false;
+    private volatile boolean isStreaming = false;
+    private volatile String connectedClientIp = "Nenhum";
+    private volatile String connectedDeviceName = "Apple Device (AirPlay)";
     private String macAddress = "CE41F2467D16";
 
-    public AirPlayServer(Context context) {
+    public AirPlayServer(Context context, AirPlayStatusListener listener) {
         this.context = context.getApplicationContext();
+        this.listener = listener;
         initMacAddress();
+        initAudioTrack();
+    }
+
+    public boolean isStreaming() {
+        return isStreaming;
+    }
+
+    public String getConnectedClientIp() {
+        return connectedClientIp;
+    }
+
+    public String getConnectedDeviceName() {
+        return connectedDeviceName;
+    }
+
+    public void disconnect() {
+        isStreaming = false;
+        connectedClientIp = "Nenhum";
+        if (listener != null) {
+            listener.onStatusChanged(false, "Nenhum", "");
+        }
         initAudioTrack();
     }
 
@@ -61,6 +91,9 @@ public class AirPlayServer {
 
     private void initAudioTrack() {
         try {
+            if (audioTrack != null) {
+                try { audioTrack.stop(); audioTrack.release(); } catch (Exception ignored) {}
+            }
             int minBufferSize = AudioTrack.getMinBufferSize(
                     44100,
                     AudioFormat.CHANNEL_OUT_STEREO,
@@ -95,6 +128,7 @@ public class AirPlayServer {
 
     public synchronized void stop() {
         isRunning = false;
+        isStreaming = false;
         unregisterNsdServices();
         try {
             if (rtspServer != null) rtspServer.close();
@@ -265,6 +299,7 @@ public class AirPlayServer {
 
     private void handleRtspClient(Socket client) {
         new Thread(() -> {
+            String clientIp = client.getInetAddress().getHostAddress();
             try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
                  OutputStream out = client.getOutputStream()) {
 
@@ -285,6 +320,9 @@ public class AirPlayServer {
                             String v = headerLine.substring(idx + 1).trim();
                             headers.put(k, v);
                             if (k.equals("cseq")) cseq = v;
+                            if (k.equals("user-agent")) {
+                                connectedDeviceName = v.contains("AirPlay") ? "Apple iPhone / iPad" : v;
+                            }
                             if (k.equals("content-length")) {
                                 try { contentLength = Integer.parseInt(v); } catch (Exception ignored) {}
                             }
@@ -311,14 +349,22 @@ public class AirPlayServer {
                     if ("OPTIONS".equalsIgnoreCase(method)) {
                         resp.append("Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, SET_PARAMETER, GET_PARAMETER\r\n\r\n");
                     } else if ("ANNOUNCE".equalsIgnoreCase(method)) {
+                        connectedClientIp = clientIp;
+                        isStreaming = true;
+                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
                         resp.append("\r\n");
                     } else if ("SETUP".equalsIgnoreCase(method)) {
+                        connectedClientIp = clientIp;
+                        isStreaming = true;
+                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
                         resp.append("Transport: RTP/AVP/UDP;unicast;mode=record;server_port=").append(AUDIO_PORT)
                             .append(";control_port=").append(CONTROL_PORT)
                             .append(";timing_port=").append(TIMING_PORT).append("\r\n");
                         resp.append("Session: 1\r\n");
                         resp.append("Audio-Jack-Status: connected\r\n\r\n");
                     } else if ("RECORD".equalsIgnoreCase(method)) {
+                        isStreaming = true;
+                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
                         resp.append("Audio-Latency: 2205\r\n\r\n");
                     } else if ("GET_PARAMETER".equalsIgnoreCase(method)) {
                         resp.append("Content-Type: text/parameters\r\nContent-Length: 0\r\n\r\n");
@@ -330,6 +376,9 @@ public class AirPlayServer {
                         resp.append("Connection: close\r\n\r\n");
                         out.write(resp.toString().getBytes(StandardCharsets.UTF_8));
                         out.flush();
+                        isStreaming = false;
+                        connectedClientIp = "Nenhum";
+                        if (listener != null) listener.onStatusChanged(false, "Nenhum", "");
                         break;
                     } else {
                         resp.append("\r\n");
@@ -338,7 +387,11 @@ public class AirPlayServer {
                     out.write(resp.toString().getBytes(StandardCharsets.UTF_8));
                     out.flush();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                isStreaming = false;
+                connectedClientIp = "Nenhum";
+                if (listener != null) listener.onStatusChanged(false, "Nenhum", "");
+            }
         }).start();
     }
 

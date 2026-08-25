@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     private AudioManager audioManager;
     private BluetoothSinkManager bluetoothSinkManager;
     private WifiAudioServer wifiAudioServer;
+    private AirPlayServer airPlayServer;
     private Handler uiHandler;
     private Runnable telemetryRunnable;
 
@@ -173,7 +174,9 @@ public class MainActivity extends Activity {
         wifiAudioServer.start();
 
         try {
-            AirPlayServer airPlayServer = new AirPlayServer(this);
+            airPlayServer = new AirPlayServer(this, (isStreaming, clientIp, deviceName) -> {
+                runOnUiThread(() -> refreshDevicesList());
+            });
             airPlayServer.start();
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Erro iniciando AirPlay: " + e.getMessage());
@@ -184,14 +187,14 @@ public class MainActivity extends Activity {
         layoutDevicesList.removeAllViews();
         boolean hasDevice = false;
 
-        // 1. Verificar Dispositivo Wi-Fi conectado
+        // 1. Verificar Dispositivo Wi-Fi conectado (PC)
         if (wifiAudioServer != null && wifiAudioServer.isStreaming()) {
             hasDevice = true;
             String clientIp = wifiAudioServer.getConnectedClientIp();
 
             LinearLayout row = createDeviceRow(
                     "💻 Computador Transmissor",
-                    "IP: " + clientIp + " • Lossless PCM",
+                    "IP: " + clientIp + " • Lossless PCM (1411 kbps)",
                     "PARAR",
                     v -> {
                         wifiAudioServer.disconnectActiveStream();
@@ -202,7 +205,26 @@ public class MainActivity extends Activity {
             layoutDevicesList.addView(row);
         }
 
-        // 2. Verificar Dispositivos Bluetooth Pareados/Conectados
+        // 2. Verificar Dispositivo Apple AirPlay conectado (iPhone / iPad)
+        if (airPlayServer != null && airPlayServer.isStreaming()) {
+            hasDevice = true;
+            String clientIp = airPlayServer.getConnectedClientIp();
+            String devName = airPlayServer.getConnectedDeviceName();
+
+            LinearLayout row = createDeviceRow(
+                    "🍏 " + devName,
+                    "IP: " + clientIp + " • Apple AirPlay Lossless ALAC",
+                    "DESCONECTAR",
+                    v -> {
+                        airPlayServer.disconnect();
+                        Toast.makeText(this, "AirPlay desconectado!", Toast.LENGTH_SHORT).show();
+                        refreshDevicesList();
+                    }
+            );
+            layoutDevicesList.addView(row);
+        }
+
+        // 3. Verificar Dispositivos Bluetooth Pareados/Conectados
         if (bluetoothSinkManager != null) {
             List<BluetoothDevice> bondedList = bluetoothSinkManager.getBondedDevices();
             for (BluetoothDevice dev : bondedList) {
@@ -226,7 +248,7 @@ public class MainActivity extends Activity {
 
         if (!hasDevice) {
             TextView emptyTv = new TextView(this);
-            emptyTv.setText(isWifiMode ? "Aguardando transmissão do computador..." : "Nenhum celular conectado via Bluetooth. Toque no botão abaixo para parear.");
+            emptyTv.setText(isWifiMode ? "Aguardando transmissão (Computador Wi-Fi ou iPhone AirPlay)..." : "Nenhum celular conectado via Bluetooth. Toque no botão abaixo para parear.");
             emptyTv.setTextColor(Color.parseColor("#64748B"));
             emptyTv.setTextSize(13);
             emptyTv.setPadding(0, 8, 0, 8);
