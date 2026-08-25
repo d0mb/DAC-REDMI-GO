@@ -171,6 +171,13 @@ public class MainActivity extends Activity {
 
         wifiAudioServer = WifiAudioServer.getInstance(this);
         wifiAudioServer.start();
+
+        try {
+            AirPlayServer airPlayServer = new AirPlayServer(this);
+            airPlayServer.start();
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Erro iniciando AirPlay: " + e.getMessage());
+        }
     }
 
     private void refreshDevicesList() {
