@@ -1,33 +1,20 @@
 package com.dachub.audio;
 
 import android.content.Context;
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import io.github.jqssun.airplay.bridge.NativeBridge;
+import io.github.jqssun.airplay.bridge.RaopCallbackHandler;
+
 import java.util.Map;
 
-public class AirPlayServer {
+public class AirPlayServer implements RaopCallbackHandler {
     private static final String TAG = "AirPlayServer";
-    private static final int RTSP_PORT = 5000;
-    private static final int AIRPLAY_PORT = 7000;
-    private static final int AUDIO_PORT = 6000;
-    private static final int CONTROL_PORT = 6001;
-    private static final int TIMING_PORT = 6002;
+    private static final int DEFAULT_PORT = 5000;
 
     public interface AirPlayStatusListener {
         void onStatusChanged(boolean isStreaming, String clientIp, String deviceName);
@@ -36,24 +23,38 @@ public class AirPlayServer {
     private final Context context;
     private final AirPlayStatusListener listener;
     private NsdManager nsdManager;
-    private NsdManager.RegistrationListener raopRegistrationListener;
-    private NsdManager.RegistrationListener airplayRegistrationListener;
-    
-    private ServerSocket rtspServer;
-    private ServerSocket airplayHttpServer;
-    private DatagramSocket audioSocket;
-    private AudioTrack audioTrack;
+    private NsdManager.RegistrationListener raopRegListener;
+    private NsdManager.RegistrationListener airplayRegListener;
+
+    private long serverHandle = 0;
+    private int boundPort = 5000;
     private boolean isRunning = false;
     private volatile boolean isStreaming = false;
     private volatile String connectedClientIp = "Nenhum";
     private volatile String connectedDeviceName = "Apple iPhone (AirPlay)";
-    private String macAddress = "CE41F2467D16";
+    private byte[] macBytes = new byte[]{(byte) 0xCE, (byte) 0x41, (byte) 0xF2, (byte) 0x46, (byte) 0x7D, (byte) 0x16};
 
     public AirPlayServer(Context context, AirPlayStatusListener listener) {
         this.context = context.getApplicationContext();
         this.listener = listener;
         initMacAddress();
-        initAudioTrack();
+    }
+
+    private void initMacAddress() {
+        try {
+            WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifi != null && wifi.getConnectionInfo() != null) {
+                String mac = wifi.getConnectionInfo().getMacAddress();
+                if (mac != null && !mac.equals("02:00:00:00:00:00")) {
+                    String[] parts = mac.split(":");
+                    if (parts.length == 6) {
+                        for (int i = 0; i < 6; i++) {
+                            macBytes[i] = (byte) Integer.parseInt(parts[i], 16);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     public boolean isStreaming() {
@@ -68,352 +69,211 @@ public class AirPlayServer {
         return connectedDeviceName;
     }
 
+    public synchronized void start() {
+        if (isRunning) return;
+
+        try {
+            Log.i(TAG, "Iniciando motor nativo C++ AirPlay 2 (libairplay_native.so)...");
+            serverHandle = NativeBridge.nativeInit(
+                    this,
+                    macBytes,
+                    "DAC-HiFi-Audio",
+                    "",
+                    true,  // audioOnly = true
+                    false  // allowMirroring = false
+            );
+
+            if (serverHandle == 0) {
+                Log.e(TAG, "Falha ao inicializar nativeInit do AirPlay");
+                return;
+            }
+
+            NativeBridge.nativeSetAudioEnabled(serverHandle, true);
+            boundPort = NativeBridge.nativeStart(serverHandle, DEFAULT_PORT);
+            if (boundPort <= 0) {
+                boundPort = DEFAULT_PORT;
+            }
+
+            NativeBridge.nativeServerAudioStart(serverHandle);
+            isRunning = true;
+
+            registerMdnsServices();
+            Log.i(TAG, "Motor nativo AirPlay 2 C++ iniciado com sucesso na porta: " + boundPort);
+        } catch (Throwable t) {
+            Log.e(TAG, "Exceção iniciando motor nativo AirPlay 2: " + t.getMessage(), t);
+        }
+    }
+
+    public synchronized void stop() {
+        if (!isRunning) return;
+        isRunning = false;
+        isStreaming = false;
+
+        unregisterMdnsServices();
+
+        if (serverHandle != 0) {
+            try {
+                NativeBridge.nativeServerAudioStop(serverHandle);
+                NativeBridge.nativeStop(serverHandle);
+                NativeBridge.nativeDestroy(serverHandle);
+            } catch (Throwable t) {
+                Log.e(TAG, "Erro parando motor nativo", t);
+            }
+            serverHandle = 0;
+        }
+    }
+
     public void disconnect() {
         isStreaming = false;
         connectedClientIp = "Nenhum";
         if (listener != null) {
             listener.onStatusChanged(false, "Nenhum", "");
         }
-        initAudioTrack();
     }
 
-    private void initMacAddress() {
+    private void registerMdnsServices() {
+        nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
+        if (nsdManager == null || serverHandle == 0) return;
+
         try {
-            WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-            if (wifi != null && wifi.getConnectionInfo() != null) {
-                String mac = wifi.getConnectionInfo().getMacAddress();
-                if (mac != null && !mac.equals("02:00:00:00:00:00")) {
-                    macAddress = mac.replace(":", "").toUpperCase();
+            // 1. Serviço RAOP de Áudio
+            String raopServiceName = NativeBridge.nativeGetRaopServiceName(serverHandle);
+            if (raopServiceName == null || raopServiceName.isEmpty()) {
+                raopServiceName = "CE41F2467D16@DAC-HiFi-Audio";
+            }
+
+            Map<String, String> raopTxt = NativeBridge.nativeGetRaopTxtRecords(serverHandle);
+
+            NsdServiceInfo raopInfo = new NsdServiceInfo();
+            raopInfo.setServiceName(raopServiceName);
+            raopInfo.setServiceType("_raop._tcp");
+            raopInfo.setPort(boundPort);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && raopTxt != null) {
+                for (Map.Entry<String, String> entry : raopTxt.entrySet()) {
+                    raopInfo.setAttribute(entry.getKey(), entry.getValue());
                 }
             }
-        } catch (Exception ignored) {}
-    }
 
-    private void initAudioTrack() {
-        try {
-            if (audioTrack != null) {
-                try { audioTrack.stop(); audioTrack.release(); } catch (Exception ignored) {}
+            raopRegListener = new NsdManager.RegistrationListener() {
+                @Override public void onServiceRegistered(NsdServiceInfo nsdServiceInfo) {
+                    Log.i(TAG, "RAOP Nativo C++ registrado: " + nsdServiceInfo.getServiceName());
+                }
+                @Override public void onRegistrationFailed(NsdServiceInfo nsdServiceInfo, int i) {
+                    Log.w(TAG, "Falha registrando RAOP mDNS: " + i);
+                }
+                @Override public void onServiceUnregistered(NsdServiceInfo nsdServiceInfo) {}
+                @Override public void onUnregistrationFailed(NsdServiceInfo nsdServiceInfo, int i) {}
+            };
+
+            nsdManager.registerService(raopInfo, NsdManager.PROTOCOL_DNS_SD, raopRegListener);
+
+            // 2. Serviço AirPlay Principal
+            String airplayServerName = NativeBridge.nativeGetServerName(serverHandle);
+            if (airplayServerName == null || airplayServerName.isEmpty()) {
+                airplayServerName = "DAC-HiFi-Audio";
             }
-            int minBufferSize = AudioTrack.getMinBufferSize(
-                    44100,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT
-            );
-            int bufferSize = Math.max(minBufferSize, 32768);
 
-            audioTrack = new AudioTrack(
-                    AudioManager.STREAM_MUSIC,
-                    44100,
-                    AudioFormat.CHANNEL_OUT_STEREO,
-                    AudioFormat.ENCODING_PCM_16BIT,
-                    bufferSize,
-                    AudioTrack.MODE_STREAM
-            );
-            audioTrack.play();
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao inicializar AudioTrack: " + e.getMessage());
-        }
-    }
+            Map<String, String> airplayTxt = NativeBridge.nativeGetAirplayTxtRecords(serverHandle);
 
-    public synchronized void start() {
-        if (isRunning) return;
-        isRunning = true;
+            NsdServiceInfo airplayInfo = new NsdServiceInfo();
+            airplayInfo.setServiceName(airplayServerName);
+            airplayInfo.setServiceType("_airplay._tcp");
+            airplayInfo.setPort(boundPort);
 
-        startRtspServer();
-        startAirPlayHttpServer();
-        startUdpAudioReceiver();
-        registerNsdServices();
-        Log.i(TAG, "Receptor AirPlay 2 dual-service iniciado para iPhone/Spotify!");
-    }
-
-    public synchronized void stop() {
-        isRunning = false;
-        isStreaming = false;
-        unregisterNsdServices();
-        try {
-            if (rtspServer != null) rtspServer.close();
-            if (airplayHttpServer != null) airplayHttpServer.close();
-            if (audioSocket != null) audioSocket.close();
-            if (audioTrack != null) {
-                audioTrack.stop();
-                audioTrack.release();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && airplayTxt != null) {
+                for (Map.Entry<String, String> entry : airplayTxt.entrySet()) {
+                    airplayInfo.setAttribute(entry.getKey(), entry.getValue());
+                }
             }
-        } catch (Exception ignored) {}
-    }
 
-    private void registerNsdServices() {
-        nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
-        if (nsdManager == null) return;
+            airplayRegListener = new NsdManager.RegistrationListener() {
+                @Override public void onServiceRegistered(NsdServiceInfo nsdServiceInfo) {
+                    Log.i(TAG, "AirPlay Nativo C++ registrado: " + nsdServiceInfo.getServiceName());
+                }
+                @Override public void onRegistrationFailed(NsdServiceInfo nsdServiceInfo, int i) {
+                    Log.w(TAG, "Falha registrando AirPlay mDNS: " + i);
+                }
+                @Override public void onServiceUnregistered(NsdServiceInfo nsdServiceInfo) {}
+                @Override public void onUnregistrationFailed(NsdServiceInfo nsdServiceInfo, int i) {}
+            };
 
-        // 1. Serviço RAOP (Áudio AirPlay) -> Formato: MAC@Nome
-        NsdServiceInfo raopService = new NsdServiceInfo();
-        raopService.setServiceName(macAddress + "@DAC-HiFi-Audio");
-        raopService.setServiceType("_raop._tcp");
-        raopService.setPort(RTSP_PORT);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            raopService.setAttribute("txtvers", "1");
-            raopService.setAttribute("ch", "2");
-            raopService.setAttribute("cn", "0,1");
-            raopService.setAttribute("et", "0,1");
-            raopService.setAttribute("sv", "false");
-            raopService.setAttribute("da", "true");
-            raopService.setAttribute("sr", "44100");
-            raopService.setAttribute("ss", "16");
-            raopService.setAttribute("pw", "false");
-            raopService.setAttribute("vn", "3");
-            raopService.setAttribute("tp", "UDP");
-            raopService.setAttribute("md", "0,1,2");
-            raopService.setAttribute("am", "AirPort4,107");
-            raopService.setAttribute("sf", "0x4");
-        }
-
-        raopRegistrationListener = new NsdManager.RegistrationListener() {
-            @Override public void onServiceRegistered(NsdServiceInfo info) { Log.i(TAG, "RAOP registrado: " + info.getServiceName()); }
-            @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) { Log.w(TAG, "Falha RAOP: " + errorCode); }
-            @Override public void onServiceUnregistered(NsdServiceInfo info) {}
-            @Override public void onUnregistrationFailed(NsdServiceInfo info, int errorCode) {}
-        };
-
-        try {
-            nsdManager.registerService(raopService, NsdManager.PROTOCOL_DNS_SD, raopRegistrationListener);
-        } catch (Exception e) {
-            Log.e(TAG, "Erro registrando RAOP mDNS", e);
-        }
-
-        // 2. Serviço AirPlay Principal (Descoberta no iOS)
-        NsdServiceInfo airplayService = new NsdServiceInfo();
-        airplayService.setServiceName("DAC-HiFi-Audio");
-        airplayService.setServiceType("_airplay._tcp");
-        airplayService.setPort(AIRPLAY_PORT);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            airplayService.setAttribute("features", "0x5A7FFFF7,0x1E");
-            airplayService.setAttribute("flags", "0x4");
-            airplayService.setAttribute("model", "AppleTV3,2");
-            airplayService.setAttribute("srcvers", "220.68");
-            airplayService.setAttribute("deviceid", macAddress);
-        }
-
-        airplayRegistrationListener = new NsdManager.RegistrationListener() {
-            @Override public void onServiceRegistered(NsdServiceInfo info) { Log.i(TAG, "AirPlay registrado: " + info.getServiceName()); }
-            @Override public void onRegistrationFailed(NsdServiceInfo info, int errorCode) { Log.w(TAG, "Falha AirPlay: " + errorCode); }
-            @Override public void onServiceUnregistered(NsdServiceInfo info) {}
-            @Override public void onUnregistrationFailed(NsdServiceInfo info, int errorCode) {}
-        };
-
-        try {
-            nsdManager.registerService(airplayService, NsdManager.PROTOCOL_DNS_SD, airplayRegistrationListener);
-        } catch (Exception e) {
-            Log.e(TAG, "Erro registrando AirPlay mDNS", e);
+            nsdManager.registerService(airplayInfo, NsdManager.PROTOCOL_DNS_SD, airplayRegListener);
+        } catch (Throwable t) {
+            Log.e(TAG, "Erro registrando serviços mDNS", t);
         }
     }
 
-    private void unregisterNsdServices() {
+    private void unregisterMdnsServices() {
         if (nsdManager != null) {
             try {
-                if (raopRegistrationListener != null) nsdManager.unregisterService(raopRegistrationListener);
-                if (airplayRegistrationListener != null) nsdManager.unregisterService(airplayRegistrationListener);
+                if (raopRegListener != null) nsdManager.unregisterService(raopRegListener);
+                if (airplayRegListener != null) nsdManager.unregisterService(airplayRegListener);
             } catch (Exception ignored) {}
         }
     }
 
-    private void startAirPlayHttpServer() {
-        new Thread(() -> {
-            try {
-                airplayHttpServer = new ServerSocket(AIRPLAY_PORT);
-                while (isRunning) {
-                    Socket client = airplayHttpServer.accept();
-                    handleHttpClient(client);
-                }
-            } catch (Exception e) {
-                if (isRunning) Log.e(TAG, "Erro no servidor HTTP AirPlay", e);
-            }
-        }).start();
+    // ========================================================
+    // CALLBACKS NATIVOS C++ (RaopCallbackHandler)
+    // ========================================================
+
+    @Override
+    public void onLog(String message) {
+        Log.d("AirPlayNative", message);
     }
 
-    private void handleHttpClient(Socket client) {
-        new Thread(() -> {
-            try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-                 OutputStream out = client.getOutputStream()) {
-
-                String line = in.readLine();
-                if (line == null) return;
-                String[] parts = line.split(" ");
-                String method = parts[0];
-                String path = parts.length > 1 ? parts[1] : "/";
-
-                while ((line = in.readLine()) != null && !line.isEmpty()) {}
-
-                Log.d(TAG, "HTTP AirPlay Porta 7000: " + method + " " + path);
-
-                if ("/info".equalsIgnoreCase(path) || "/server-info".equalsIgnoreCase(path)) {
-                    String xmlInfo = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n" +
-                            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\r\n" +
-                            "<plist version=\"1.0\">\r\n<dict>\r\n" +
-                            "<key>deviceid</key><string>" + macAddress + "</string>\r\n" +
-                            "<key>features</key><integer>14847</integer>\r\n" +
-                            "<key>model</key><string>AppleTV3,2</string>\r\n" +
-                            "<key>protovers</key><string>1.0</string>\r\n" +
-                            "<key>srcvers</key><string>220.68</string>\r\n" +
-                            "<key>statusFlags</key><integer>4</integer>\r\n" +
-                            "</dict>\r\n</plist>\r\n";
-                    byte[] data = xmlInfo.getBytes(StandardCharsets.UTF_8);
-
-                    String resp = "HTTP/1.1 200 OK\r\n" +
-                            "Content-Type: text/x-apple-plist+xml\r\n" +
-                            "Content-Length: " + data.length + "\r\n" +
-                            "Server: AirTunes/220.68\r\n\r\n";
-                    out.write(resp.getBytes(StandardCharsets.UTF_8));
-                    out.write(data);
-                } else if ("/pair-setup".equalsIgnoreCase(path) || "/pair-verify".equalsIgnoreCase(path)) {
-                    byte[] dummyKey = new byte[32];
-                    String resp = "HTTP/1.1 200 OK\r\n" +
-                            "Content-Type: application/octet-stream\r\n" +
-                            "Content-Length: " + dummyKey.length + "\r\n" +
-                            "Server: AirTunes/220.68\r\n\r\n";
-                    out.write(resp.getBytes(StandardCharsets.UTF_8));
-                    out.write(dummyKey);
-                } else {
-                    String resp = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-                    out.write(resp.getBytes(StandardCharsets.UTF_8));
-                }
-                out.flush();
-            } catch (Exception ignored) {}
-        }).start();
+    @Override
+    public void onAudioFormat(int sampleRate, int channels, boolean isFloat) {
+        Log.i(TAG, "Áudio AirPlay ALAC iniciado: " + sampleRate + " Hz, " + channels + " canais, float=" + isFloat);
+        isStreaming = true;
+        connectedClientIp = "Apple Device";
+        if (listener != null) {
+            listener.onStatusChanged(true, connectedClientIp, connectedDeviceName);
+        }
     }
 
-    private void startRtspServer() {
-        new Thread(() -> {
-            try {
-                rtspServer = new ServerSocket(RTSP_PORT);
-                while (isRunning) {
-                    Socket client = rtspServer.accept();
-                    handleRtspClient(client);
-                }
-            } catch (Exception e) {
-                if (isRunning) Log.e(TAG, "Erro no servidor RTSP", e);
-            }
-        }).start();
+    @Override
+    public void onAudioTeardown() {
+        Log.i(TAG, "Áudio AirPlay finalizado (Teardown)");
+        isStreaming = false;
+        connectedClientIp = "Nenhum";
+        if (listener != null) {
+            listener.onStatusChanged(false, "Nenhum", "");
+        }
     }
 
-    private void handleRtspClient(Socket client) {
-        new Thread(() -> {
-            String clientIp = client.getInetAddress().getHostAddress();
-            try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-                 OutputStream out = client.getOutputStream()) {
-
-                String line;
-                String cseq = "1";
-                while ((line = in.readLine()) != null && isRunning) {
-                    if (line.isEmpty()) continue;
-                    String[] parts = line.split(" ");
-                    String method = parts[0];
-
-                    Map<String, String> headers = new HashMap<>();
-                    String headerLine;
-                    int contentLength = 0;
-                    while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
-                        int idx = headerLine.indexOf(":");
-                        if (idx > 0) {
-                            String k = headerLine.substring(0, idx).trim().toLowerCase();
-                            String v = headerLine.substring(idx + 1).trim();
-                            headers.put(k, v);
-                            if (k.equals("cseq")) cseq = v;
-                            if (k.equals("user-agent")) {
-                                connectedDeviceName = v.contains("AirPlay") ? "Apple iPhone (Spotify)" : v;
-                            }
-                            if (k.equals("content-length")) {
-                                try { contentLength = Integer.parseInt(v); } catch (Exception ignored) {}
-                            }
-                        }
-                    }
-
-                    if (contentLength > 0) {
-                        char[] body = new char[contentLength];
-                        int read = 0;
-                        while (read < contentLength) {
-                            int r = in.read(body, read, contentLength - read);
-                            if (r == -1) break;
-                            read += r;
-                        }
-                    }
-
-                    Log.d(TAG, "RTSP Metodo do iPhone: " + method);
-
-                    StringBuilder resp = new StringBuilder();
-                    resp.append("RTSP/1.0 200 OK\r\n");
-                    resp.append("CSeq: ").append(cseq).append("\r\n");
-                    resp.append("Server: AirTunes/220.68\r\n");
-
-                    if ("OPTIONS".equalsIgnoreCase(method)) {
-                        resp.append("Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, SET_PARAMETER, GET_PARAMETER\r\n\r\n");
-                    } else if ("ANNOUNCE".equalsIgnoreCase(method)) {
-                        connectedClientIp = clientIp;
-                        isStreaming = true;
-                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
-                        resp.append("\r\n");
-                    } else if ("SETUP".equalsIgnoreCase(method)) {
-                        connectedClientIp = clientIp;
-                        isStreaming = true;
-                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
-                        resp.append("Transport: RTP/AVP/UDP;unicast;mode=record;server_port=").append(AUDIO_PORT)
-                            .append(";control_port=").append(CONTROL_PORT)
-                            .append(";timing_port=").append(TIMING_PORT).append("\r\n");
-                        resp.append("Session: 1\r\n");
-                        resp.append("Audio-Jack-Status: connected\r\n\r\n");
-                    } else if ("RECORD".equalsIgnoreCase(method)) {
-                        isStreaming = true;
-                        if (listener != null) listener.onStatusChanged(true, clientIp, connectedDeviceName);
-                        resp.append("Audio-Latency: 2205\r\n\r\n");
-                    } else if ("GET_PARAMETER".equalsIgnoreCase(method)) {
-                        resp.append("Content-Type: text/parameters\r\nContent-Length: 0\r\n\r\n");
-                    } else if ("SET_PARAMETER".equalsIgnoreCase(method)) {
-                        resp.append("\r\n");
-                    } else if ("FLUSH".equalsIgnoreCase(method)) {
-                        resp.append("RTP-Info: seq=0;rtptime=0\r\n\r\n");
-                    } else if ("TEARDOWN".equalsIgnoreCase(method)) {
-                        resp.append("Connection: close\r\n\r\n");
-                        out.write(resp.toString().getBytes(StandardCharsets.UTF_8));
-                        out.flush();
-                        isStreaming = false;
-                        connectedClientIp = "Nenhum";
-                        if (listener != null) listener.onStatusChanged(false, "Nenhum", "");
-                        break;
-                    } else {
-                        resp.append("\r\n");
-                    }
-
-                    out.write(resp.toString().getBytes(StandardCharsets.UTF_8));
-                    out.flush();
-                }
-            } catch (Exception ignored) {
-                isStreaming = false;
-                connectedClientIp = "Nenhum";
-                if (listener != null) listener.onStatusChanged(false, "Nenhum", "");
-            }
-        }).start();
+    @Override
+    public float onClientVolume() {
+        return 1.0f;
     }
 
-    private void startUdpAudioReceiver() {
-        new Thread(() -> {
-            try {
-                audioSocket = new DatagramSocket(AUDIO_PORT);
-                byte[] buffer = new byte[4096];
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
-                while (isRunning) {
-                    audioSocket.receive(packet);
-                    int len = packet.getLength();
-                    if (len > 12) {
-                        if (audioTrack != null) {
-                            audioTrack.write(packet.getData(), 12, len - 12);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                if (isRunning) Log.e(TAG, "Erro no socket UDP de audio", e);
-            }
-        }).start();
+    @Override
+    public void onConnectionInit() {
+        Log.d(TAG, "Conexão AirPlay iniciada pelo iPhone!");
     }
+
+    @Override
+    public void onConnectionDestroy() {
+        Log.d(TAG, "Conexão AirPlay encerrada.");
+        isStreaming = false;
+        if (listener != null) {
+            listener.onStatusChanged(false, "Nenhum", "");
+        }
+    }
+
+    @Override public void onConnectionReset(int code) { Log.d(TAG, "Conexão reset: " + code); }
+    @Override public void onCoverArt(byte[] data) { Log.d(TAG, "Capa do álbum recebida (" + (data != null ? data.length : 0) + " bytes)"); }
+    @Override public void onDacpId(String dacpId, String activeRemote) {}
+    @Override public void onDisplayPin(String pin) { Log.i(TAG, "PIN AirPlay: " + pin); }
+    @Override public void onMetadata(byte[] data) { Log.d(TAG, "Metadados de faixa recebidos."); }
+    @Override public void onMirrorRunning(boolean running) {}
+    @Override public void onProgress(long start, long current, long end) {}
+    @Override public void onVideoData(byte[] data, long timestamp, boolean isKeyFrame) {}
+    @Override public void onVideoPlay(String location, float position) {}
+    @Override public void onVideoRate(float rate) {}
+    @Override public void onVideoScrub(float position) {}
+    @Override public void onVideoSessionPoll() {}
+    @Override public void onVideoSize(float width, float height, float aspect1, float aspect2) {}
+    @Override public void onVideoStop() {}
+    @Override public void onVolumeChange(float volume) { Log.d(TAG, "Volume alterado pelo iPhone: " + volume); }
 }
