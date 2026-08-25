@@ -1,0 +1,27 @@
+{
+  "name": "dac-hub-pro",
+  "version": "2.0.0",
+  "description": "DAC Hub Pro - Transformando o Xiaomi Redmi Go em um Receptor de Áudio DAC Hi-Fi Dedicado (Lossless)",
+  "main": "scripts/build_apk.ps1",
+  "scripts": {
+    "check:agents": "python .agents/scripts/validate_kit.py",
+    "verify:agents": "python .agents/scripts/verify_all.py",
+    "build:apk": "powershell.exe -ExecutionPolicy Bypass -File scripts/build_apk.ps1",
+    "build:pc": "powershell.exe -ExecutionPolicy Bypass -File scripts/build_transmitter.ps1",
+    "deploy": "powershell.exe -ExecutionPolicy Bypass -File scripts/build_apk.ps1 && .\\tools\\platform-tools\\adb.exe install -r -d -t dist/DAC_Hub_Pro.apk && .\\tools\\platform-tools\\adb.exe shell am force-stop com.dachub.audio && .\\tools\\platform-tools\\adb.exe shell am start -n com.dachub.audio/.MainActivity",
+    "screencap": ".\\tools\\platform-tools\\adb.exe shell screencap -p /sdcard/live.png && .\\tools\\platform-tools\\adb.exe pull /sdcard/live.png tools/live.png",
+    "status": "curl http://192.168.15.12:8080/api/status"
+  },
+  "keywords": [
+    "dac",
+    "audio",
+    "hifi",
+    "lossless",
+    "airplay",
+    "redmi-go",
+    "antigravity",
+    "ag-kit"
+  ],
+  "author": "DAC Hub Pro Team",
+  "license": "MIT"
+}

@@ -1,8 +1,9 @@
 ---
 name: dac-screencap-and-control
-description: >-
-  Captura screenshots em tempo real da tela do Xiaomi Redmi Go e controla eventos de toque, volume e atividades.
-  Use quando precisar inspecionar a interface do celular, ajustar volume do sistema ou automatizar testes de tela.
+description: Captura screenshots em tempo real da tela do Xiaomi Redmi Go e controla eventos de toque, volume e atividades
+when_to_use: "Use quando precisar inspecionar a interface do celular, ajustar volume do sistema ou automatizar testes de tela."
+allowed-tools: Read, Write, Edit, Bash
+version: 1.0.0
 ---
 
 # Skill: DAC Screencap and Remote Control

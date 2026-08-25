@@ -1,8 +1,9 @@
 ---
 name: dac-airplay-diagnostics
-description: >-
-  Diagnostica o receptor Apple AirPlay 2 (mDNS, RTSP, HTTP port 7000 e decodificador nativo ALAC/Oboe).
-  Use quando o iPhone nao conectar ou quando precisar inspecionar a comunicacao AirPlay em tempo real.
+description: Diagnostica o receptor Apple AirPlay 2 (mDNS, RTSP, HTTP port 7000 e decodificador nativo ALAC/Oboe)
+when_to_use: "Use quando o iPhone nao conectar ou quando precisar inspecionar a comunicacao AirPlay em tempo real."
+allowed-tools: Read, Write, Edit, Bash
+version: 1.0.0
 ---
 
 # Skill: DAC AirPlay Diagnostics

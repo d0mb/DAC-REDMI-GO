@@ -1,8 +1,9 @@
 ---
 name: dac-builder
-description: >-
-  Compila e empacota o APK do DAC Hub Pro com as bibliotecas C++ nativas e gera o transmissor portatil de PC.
-  Use quando o usuario pedir para compilar, atualizar o APK ou gerar os binarios do projeto.
+description: Compila e empacota o APK do DAC Hub Pro com as bibliotecas C++ nativas e gera o transmissor portatil de PC
+when_to_use: "Use quando o usuario pedir para compilar, atualizar o APK ou gerar os binarios do projeto DAC Hub Pro."
+allowed-tools: Read, Write, Edit, Bash
+version: 1.0.0
 ---
 
 # Skill: DAC Builder (Compilação e Deploy Automatizado)
