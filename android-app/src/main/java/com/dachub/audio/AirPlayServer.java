@@ -32,6 +32,7 @@ public class AirPlayServer implements RaopCallbackHandler {
     private final Context context;
     private final AirPlayEventListener listener;
     private AudioManager audioManager;
+    private WifiManager.WifiLock wifiLock;
     private NsdManager nsdManager;
     private NsdManager.RegistrationListener raopRegListener;
     private NsdManager.RegistrationListener airplayRegListener;
@@ -52,6 +53,17 @@ public class AirPlayServer implements RaopCallbackHandler {
         this.listener = listener;
         this.audioManager = (AudioManager) this.context.getSystemService(Context.AUDIO_SERVICE);
         initMacAddress();
+        initWifiLock();
+    }
+
+    private void initWifiLock() {
+        try {
+            WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            if (wifi != null) {
+                wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "DAC::AirPlayWifiLock");
+                wifiLock.setReferenceCounted(false);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void initMacAddress() {
@@ -95,6 +107,10 @@ public class AirPlayServer implements RaopCallbackHandler {
         if (isRunning) return;
 
         try {
+            if (wifiLock != null && !wifiLock.isHeld()) {
+                wifiLock.acquire();
+            }
+
             int sampleRate = 48000;
             int framesPerBurst = 192;
             if (audioManager != null) {
@@ -125,18 +141,18 @@ public class AirPlayServer implements RaopCallbackHandler {
                 return;
             }
 
-            // Configuração OBRIGATÓRIA do motor de áudio C++ (AudioEngine / Oboe)
+            // Configuração Anti-Jitter Hi-Fi (cushionMs = 50ms para eliminar micro-stutter de Wi-Fi)
             boolean audioConfigured = NativeBridge.nativeServerAudioConfigure(
                     serverHandle,
-                    7,      // cushionMs: 7ms
+                    50,     // cushionMs: 50ms (anti-jitter buffer)
                     95,     // percentilePct: 95
-                    0,      // oboeBufferFrames: 0 (default hardware burst)
+                    384,    // oboeBufferFrames: 384 (2x Qualcomm 192 burst)
                     true,   // forceSwAlac: true (FFmpeg ALAC software decoder)
-                    true,   // realtimePriority: true
+                    true,   // realtimePriority: true (alta prioridade de áudio)
                     true,   // lowLatency: true
                     false   // benchmarkLog: false
             );
-            Log.i(TAG, "Motor de Áudio Nativo C++ configurado com sucesso: " + audioConfigured);
+            Log.i(TAG, "Motor de Áudio Nativo C++ configurado (50ms cushion / 384 frames): " + audioConfigured);
 
             // Ativação explícita de Codecs ALAC e AAC
             NativeBridge.nativeSetH265Enabled(serverHandle, true);
@@ -146,7 +162,8 @@ public class AirPlayServer implements RaopCallbackHandler {
             NativeBridge.nativeSetAudioEnabled(serverHandle, true);
             NativeBridge.nativeSetPlist(serverHandle, "maxFPS", 60);
             NativeBridge.nativeSetPlist(serverHandle, "overscanned", 0);
-            NativeBridge.nativeSetPlist(serverHandle, "audio_delay_micros", 0);
+            // 200.000 micros (200ms) de lead time para buffer anti-lag no iPhone
+            NativeBridge.nativeSetPlist(serverHandle, "audio_delay_micros", 200000);
             NativeBridge.nativeSetDisplaySize(serverHandle, 720, 1280, 60);
 
             boundPort = NativeBridge.nativeStart(serverHandle, DEFAULT_PORT);
@@ -182,6 +199,10 @@ public class AirPlayServer implements RaopCallbackHandler {
             try {
                 audioManager.abandonAudioFocus(null);
             } catch (Exception ignored) {}
+        }
+
+        if (wifiLock != null && wifiLock.isHeld()) {
+            try { wifiLock.release(); } catch (Exception ignored) {}
         }
     }
 
