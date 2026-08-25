@@ -85,12 +85,13 @@ public class MainActivity extends Activity {
     private WifiAudioServer wifiAudioServer;
     private AirPlayServer airPlayServer;
     private Handler uiHandler;
-    private Runnable telemetryRunnable;
-    private int vuSimStep = 0;
+    private static final int[] VU_PULSE = new int[]{75, 82, 88, 92, 85, 80, 86, 78};
+    private int lastReportedLevel = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
 
@@ -503,14 +504,18 @@ public class MainActivity extends Activity {
         return Math.round(dp * density);
     }
 
-    private void setupTelemetryLoop() {
-        telemetryRunnable = new Runnable() {
-            @Override
-            public void run() {
-                updateTelemetry();
-                uiHandler.postDelayed(this, 250); // 4 FPS animation update
+    private int vuSimStep = 0;
+    private final Runnable telemetryRunnable = new Runnable() {
+        @Override
+        public void run() {
+            updateTelemetry();
+            if (uiHandler != null) {
+                uiHandler.postDelayed(this, 1000);
             }
-        };
+        }
+    };
+
+    private void setupTelemetryLoop() {
         uiHandler.post(telemetryRunnable);
     }
 
@@ -519,15 +524,15 @@ public class MainActivity extends Activity {
         if (wifiAudioServer != null && wifiAudioServer.isStreaming()) {
             level = wifiAudioServer.getCurrentAudioLevel();
         } else if (airPlayServer != null && airPlayServer.isStreaming()) {
-            // Animate VU meter when AirPlay is actively streaming
-            vuSimStep = (vuSimStep + 1) % 8;
-            int[] pulse = {65, 78, 85, 92, 70, 82, 88, 75};
-            level = pulse[vuSimStep];
+            vuSimStep = (vuSimStep + 1) % VU_PULSE.length;
+            level = VU_PULSE[vuSimStep];
         }
 
-        if (level > 100) level = 100;
-        if (pbGlobalVuMeter != null) pbGlobalVuMeter.setProgress(level);
-        if (tvVuVal != null) tvVuVal.setText(level + " %");
+        if (level != lastReportedLevel) {
+            lastReportedLevel = level;
+            if (pbGlobalVuMeter != null) pbGlobalVuMeter.setProgress(level);
+            if (tvVuVal != null) tvVuVal.setText(level + "%");
+        }
     }
 
     @Override

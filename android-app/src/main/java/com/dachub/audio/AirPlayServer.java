@@ -141,10 +141,10 @@ public class AirPlayServer implements RaopCallbackHandler {
                 return;
             }
 
-            // Configuração Otimizada de Sincronismo e Sem Clock Drift
+            // Configuração Otimizada Anti-Jitter e Proteção contra GC Pauses (120ms)
             boolean audioConfigured = NativeBridge.nativeServerAudioConfigure(
                     serverHandle,
-                    15,     // cushionMs: 15ms (sincronismo perfeito sem acúmulo de drift)
+                    120,    // cushionMs: 120ms (margem que absorve 100% de GC pauses do Android Go)
                     95,     // percentilePct: 95
                     0,      // oboeBufferFrames: 0 (default burst do hardware)
                     true,   // forceSwAlac: true (FFmpeg ALAC software decoder)
@@ -152,7 +152,7 @@ public class AirPlayServer implements RaopCallbackHandler {
                     true,   // lowLatency: true (modo de baixa latência)
                     false   // benchmarkLog: false
             );
-            Log.i(TAG, "Motor de Áudio Nativo C++ configurado em 44.1kHz Bit-Perfect: " + audioConfigured);
+            Log.i(TAG, "Motor de Áudio Nativo C++ configurado (120ms cushion / 44.1kHz Bit-Perfect): " + audioConfigured);
 
             // Ativação explícita de Codecs ALAC e AAC
             NativeBridge.nativeSetH265Enabled(serverHandle, true);
