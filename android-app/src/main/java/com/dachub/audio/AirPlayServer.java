@@ -35,6 +35,7 @@ public class AirPlayServer {
     private NsdManager.RegistrationListener airplayRegistrationListener;
     
     private ServerSocket rtspServer;
+    private ServerSocket airplayHttpServer;
     private DatagramSocket audioSocket;
     private AudioTrack audioTrack;
     private boolean isRunning = false;
@@ -86,6 +87,7 @@ public class AirPlayServer {
         isRunning = true;
 
         startRtspServer();
+        startAirPlayHttpServer();
         startUdpAudioReceiver();
         registerNsdServices();
         Log.i(TAG, "Receptor AirPlay iniciado para iPhone/iPad!");
@@ -96,6 +98,7 @@ public class AirPlayServer {
         unregisterNsdServices();
         try {
             if (rtspServer != null) rtspServer.close();
+            if (airplayHttpServer != null) airplayHttpServer.close();
             if (audioSocket != null) audioSocket.close();
             if (audioTrack != null) {
                 audioTrack.stop();
@@ -118,7 +121,7 @@ public class AirPlayServer {
             raopService.setAttribute("txtvers", "1");
             raopService.setAttribute("ch", "2");
             raopService.setAttribute("cn", "0,1");
-            raopService.setAttribute("et", "0"); // 0 = Sem criptografia (Áudio direto compatível com todos os iOS)
+            raopService.setAttribute("et", "0");
             raopService.setAttribute("sv", "false");
             raopService.setAttribute("da", "true");
             raopService.setAttribute("sr", "44100");
@@ -179,6 +182,71 @@ public class AirPlayServer {
                 if (airplayRegistrationListener != null) nsdManager.unregisterService(airplayRegistrationListener);
             } catch (Exception ignored) {}
         }
+    }
+
+    private void startAirPlayHttpServer() {
+        new Thread(() -> {
+            try {
+                airplayHttpServer = new ServerSocket(AIRPLAY_PORT);
+                while (isRunning) {
+                    Socket client = airplayHttpServer.accept();
+                    handleHttpClient(client);
+                }
+            } catch (Exception e) {
+                if (isRunning) Log.e(TAG, "Erro no servidor HTTP AirPlay", e);
+            }
+        }).start();
+    }
+
+    private void handleHttpClient(Socket client) {
+        new Thread(() -> {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+                 OutputStream out = client.getOutputStream()) {
+
+                String line = in.readLine();
+                if (line == null) return;
+                String[] parts = line.split(" ");
+                String method = parts[0];
+                String path = parts.length > 1 ? parts[1] : "/";
+
+                while ((line = in.readLine()) != null && !line.isEmpty()) {}
+
+                Log.d(TAG, "HTTP AirPlay " + method + " " + path);
+
+                if ("/info".equalsIgnoreCase(path) || "/server-info".equalsIgnoreCase(path)) {
+                    String xmlInfo = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n" +
+                            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\r\n" +
+                            "<plist version=\"1.0\">\r\n<dict>\r\n" +
+                            "<key>deviceid</key><string>" + macAddress + "</string>\r\n" +
+                            "<key>features</key><integer>14847</integer>\r\n" +
+                            "<key>model</key><string>AppleTV3,2</string>\r\n" +
+                            "<key>protovers</key><string>1.0</string>\r\n" +
+                            "<key>srcvers</key><string>220.68</string>\r\n" +
+                            "<key>statusFlags</key><integer>4</integer>\r\n" +
+                            "</dict>\r\n</plist>\r\n";
+                    byte[] data = xmlInfo.getBytes(StandardCharsets.UTF_8);
+
+                    String resp = "HTTP/1.1 200 OK\r\n" +
+                            "Content-Type: text/x-apple-plist+xml\r\n" +
+                            "Content-Length: " + data.length + "\r\n" +
+                            "Server: AirTunes/220.68\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                    out.write(data);
+                } else if ("/pair-setup".equalsIgnoreCase(path) || "/pair-verify".equalsIgnoreCase(path)) {
+                    byte[] dummyKey = new byte[32];
+                    String resp = "HTTP/1.1 200 OK\r\n" +
+                            "Content-Type: application/octet-stream\r\n" +
+                            "Content-Length: " + dummyKey.length + "\r\n" +
+                            "Server: AirTunes/220.68\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                    out.write(dummyKey);
+                } else {
+                    String resp = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+                    out.write(resp.getBytes(StandardCharsets.UTF_8));
+                }
+                out.flush();
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void startRtspServer() {
@@ -252,6 +320,8 @@ public class AirPlayServer {
                         resp.append("Audio-Jack-Status: connected\r\n\r\n");
                     } else if ("RECORD".equalsIgnoreCase(method)) {
                         resp.append("Audio-Latency: 2205\r\n\r\n");
+                    } else if ("GET_PARAMETER".equalsIgnoreCase(method)) {
+                        resp.append("Content-Type: text/parameters\r\nContent-Length: 0\r\n\r\n");
                     } else if ("SET_PARAMETER".equalsIgnoreCase(method)) {
                         resp.append("\r\n");
                     } else if ("FLUSH".equalsIgnoreCase(method)) {
@@ -283,7 +353,6 @@ public class AirPlayServer {
                     audioSocket.receive(packet);
                     int len = packet.getLength();
                     if (len > 12) {
-                        // Escreve os frames de áudio PCM diretamente no AudioTrack
                         if (audioTrack != null) {
                             audioTrack.write(packet.getData(), 12, len - 12);
                         }
