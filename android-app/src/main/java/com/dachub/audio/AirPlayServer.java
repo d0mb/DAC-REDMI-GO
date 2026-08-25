@@ -95,9 +95,9 @@ public class AirPlayServer implements RaopCallbackHandler {
         if (isRunning) return;
 
         try {
-            Log.i(TAG, "Configurando valores padrão de áudio Oboe C++...");
-            int sampleRate = 44100;
-            int framesPerBurst = 256;
+            Log.i(TAG, "Configurando HAL de áudio Oboe C++ (Qualcomm 192 burst / 48000 Hz)...");
+            int sampleRate = 48000;
+            int framesPerBurst = 192;
             if (audioManager != null) {
                 try {
                     String sr = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
@@ -105,13 +105,13 @@ public class AirPlayServer implements RaopCallbackHandler {
                     String fpb = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
                     if (fpb != null) framesPerBurst = Integer.parseInt(fpb);
                 } catch (Exception ignored) {}
-                // Garantir volume master no máximo para a saída P2
+
                 int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVol, 0);
             }
             NativeBridge.nativeSetDefaultStreamValues(sampleRate, framesPerBurst);
 
-            Log.i(TAG, "Iniciando motor nativo C++ AirPlay 2 (libairplay_native.so)...");
+            Log.i(TAG, "Iniciando receptor nativo C++ AirPlay 2 (libairplay_native.so)...");
             serverHandle = NativeBridge.nativeInit(
                     this,
                     macBytes,
@@ -130,12 +130,9 @@ public class AirPlayServer implements RaopCallbackHandler {
             boundPort = NativeBridge.nativeStart(serverHandle, DEFAULT_PORT);
             if (boundPort <= 0) boundPort = DEFAULT_PORT;
 
-            NativeBridge.nativeServerAudioConfigure(serverHandle, 44100, 2, 16, false, true, false, true);
-            NativeBridge.nativeServerAudioStart(serverHandle);
             isRunning = true;
-
             registerMdnsServices();
-            Log.i(TAG, "Motor nativo AirPlay 2 C++ iniciado com sucesso na porta: " + boundPort);
+            Log.i(TAG, "Motor nativo AirPlay 2 C++ pronto na porta: " + boundPort);
         } catch (Throwable t) {
             Log.e(TAG, "Exceção iniciando motor nativo AirPlay 2: " + t.getMessage(), t);
         }
@@ -150,7 +147,6 @@ public class AirPlayServer implements RaopCallbackHandler {
 
         if (serverHandle != 0) {
             try {
-                NativeBridge.nativeServerAudioStop(serverHandle);
                 NativeBridge.nativeStop(serverHandle);
                 NativeBridge.nativeDestroy(serverHandle);
             } catch (Throwable t) {
@@ -265,7 +261,7 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public void onAudioFormat(int sampleRate, int channels, boolean isFloat) {
-        Log.i(TAG, "Áudio AirPlay ALAC ativo: " + sampleRate + " Hz, " + channels + " canais");
+        Log.i(TAG, "Áudio AirPlay ALAC puro recebido: " + sampleRate + " Hz, " + channels + " canais");
         isStreaming = true;
         connectedClientIp = "Apple iPhone";
         if (listener != null) {
@@ -275,22 +271,18 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public void onAudioTeardown() {
-        Log.i(TAG, "Áudio AirPlay encerrado");
-        isStreaming = false;
-        connectedClientIp = "Nenhum";
-        if (listener != null) {
-            listener.onStatusChanged(false, "Nenhum", "");
-        }
+        Log.i(TAG, "Áudio AirPlay finalizado pelo iPhone (Teardown)");
+        disconnect();
     }
 
     @Override
     public float onClientVolume() {
-        return 0.0f; // 0.0 dB = Volume máximo normal no protocolo AirPlay
+        return 0.0f; // 0.0 dB = Volume máximo padrão AirPlay
     }
 
     @Override
     public void onConnectionInit() {
-        Log.d(TAG, "Conexão AirPlay estabelecida pelo iPhone!");
+        Log.d(TAG, "Conexão AirPlay iniciada pelo iPhone!");
         isStreaming = true;
         if (listener != null) {
             listener.onStatusChanged(true, "Apple iPhone", "Apple iPhone (Spotify)");
@@ -299,13 +291,14 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public void onConnectionDestroy() {
-        Log.d(TAG, "Conexão AirPlay desconectada.");
+        Log.d(TAG, "Conexão AirPlay finalizada pelo iPhone.");
         disconnect();
     }
 
     @Override
     public void onConnectionReset(int code) {
         Log.d(TAG, "Conexão AirPlay reset: " + code);
+        disconnect();
     }
 
     @Override
@@ -372,8 +365,7 @@ public class AirPlayServer implements RaopCallbackHandler {
 
     @Override
     public void onVolumeChange(float volume) {
-        Log.d(TAG, "Volume AirPlay recebido do iPhone (dB): " + volume);
-        // Escala AirPlay dB: 0.0 dB (Max 100%) a -30.0 dB (Min 0%), -144.0 dB (Mute)
+        Log.d(TAG, "Volume AirPlay recebido (dB): " + volume);
         int percent;
         if (volume <= -30.0f || volume <= -144.0f) {
             percent = 0;
